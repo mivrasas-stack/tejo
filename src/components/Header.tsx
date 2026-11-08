@@ -16,14 +16,15 @@ import {
   Menu,
   ChevronLeft,
   Sun,
-  Moon
+  Moon,
+  Trophy
 } from 'lucide-react';
 import { User } from '../types';
 import { SYSTEM_USERS } from '../services/storage';
 
 interface HeaderProps {
-  activeTab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users';
-  setActiveTab: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users') => void;
+  activeTab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users' | 'championships';
+  setActiveTab: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users' | 'championships') => void;
   activeUser: User;
   onSwitchUser: (user: User) => void;
   onOpenLoginModal: () => void;
@@ -64,6 +65,8 @@ export const Header: React.FC<HeaderProps> = ({
         return { label: 'Contabilidad & Gastos', icon: CircleDollarSign };
       case 'reservations':
         return { label: 'Tejo & Bolirana', icon: Target };
+      case 'championships':
+        return { label: 'Campeonatos Tejo & Bolirana', icon: Trophy };
       case 'users':
         return { label: 'Usuarios & Administradores', icon: ShieldCheck };
       default:
@@ -134,8 +137,22 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Right Zone: Theme Toggle, Users Module Button & Active User */}
+          {/* Right Zone: Championships Button, Users Module Button, Theme Toggle & Active User */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Direct Quick Button to Championships Module */}
+            <button
+              onClick={() => setActiveTab('championships')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-sm ${
+                activeTab === 'championships'
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/35'
+              }`}
+              title="Abrir Campeonatos de Tejo y Bolirana"
+            >
+              <Trophy className="w-4 h-4" />
+              <span className="hidden md:inline">Campeonatos</span>
+            </button>
+
             {/* Direct Quick Button to Users Management Module */}
             <button
               onClick={() => setActiveTab('users')}

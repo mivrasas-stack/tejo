@@ -14,7 +14,8 @@ import {
   ChevronRight,
   PanelLeftOpen,
   PanelLeftClose,
-  ShieldCheck
+  ShieldCheck,
+  Trophy
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -22,8 +23,8 @@ interface SlideBarProps {
   isOpen: boolean;
   onClose: () => void;
   onToggle: () => void;
-  activeTab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users';
-  onSelectTab: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users') => void;
+  activeTab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users' | 'championships';
+  onSelectTab: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users' | 'championships') => void;
   openTabsCount: number;
   lowStockCount: number;
   activeGamesCount: number;
@@ -88,6 +89,14 @@ export const SlideBar: React.FC<SlideBarProps> = ({
       icon: Target,
       infoBadge: activeGamesCount > 0 ? `${activeGamesCount} en juego` : undefined,
       iconStyle: 'bg-rose-500/15 border-rose-500/35 text-rose-400',
+    },
+    {
+      id: 'championships' as const,
+      label: 'Campeonatos Tejo & Bolirana',
+      sublabel: 'Torneos por puntos, A Balazos y Rana',
+      icon: Trophy,
+      infoBadge: 'Torneos',
+      iconStyle: 'bg-amber-500/15 border-amber-500/35 text-amber-400',
     },
     {
       id: 'users' as const,

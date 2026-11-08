@@ -21,7 +21,8 @@ import {
   Edit3,
   Settings,
   ShieldCheck,
-  UserPlus
+  UserPlus,
+  Trophy
 } from 'lucide-react';
 import { 
   Product, 
@@ -36,7 +37,7 @@ import {
 import { formatCurrency } from '../services/storage';
 
 interface HomeDashboardProps {
-  onNavigate: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users') => void;
+  onNavigate: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users' | 'championships') => void;
   products: Product[];
   clientTabs: ClientTab[];
   tables: string[];
@@ -648,6 +649,42 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
               Administradores
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* MÓDULO 7: CAMPEONATOS DE TEJO, A BALAZOS & BOLIRANA — COLOR ORO / ÁMBAR TROFEO */}
+      <div 
+        onClick={() => onNavigate('championships')}
+        className="group relative cursor-pointer overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-r from-amber-500/[0.15] via-rose-500/[0.08] to-zinc-950/90 p-5 sm:p-6 backdrop-blur-2xl hover:border-amber-400/70 hover:from-amber-500/[0.22] transition-all duration-300 shadow-xl hover:shadow-amber-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
+        <div className="flex items-start sm:items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/45 text-amber-400 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+            <Trophy className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Torneos Oficiales del Local</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/35 font-mono font-bold">
+                Tejo · A Balazos · Bolirana
+              </span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-zinc-100 group-hover:text-amber-200 transition-colors mt-0.5">
+              Campeonatos de Tejo, A Balazos & Bolirana
+            </h3>
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed max-w-2xl">
+              Tablero marcador en vivo con llaves eliminatorias, puntaje meta libre (27 ptos o el que elijas), modalidad relámpago A Balazos (mechas) y figuras de Bolirana.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-800/60 shrink-0">
+          <span className="text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+            Abrir Tablero de Campeonatos
+            <ChevronRight className="w-4 h-4" />
+          </span>
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-400 flex items-center justify-center">
+            <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </div>
         </div>
       </div>

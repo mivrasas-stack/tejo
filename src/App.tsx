@@ -9,6 +9,7 @@ import { KardexView } from './components/KardexView';
 import { AccountingView } from './components/AccountingView';
 import { ReservationsView } from './components/ReservationsView';
 import { UsersView } from './components/UsersView';
+import { ChampionshipsView } from './components/ChampionshipsView';
 import { LoginModal } from './components/LoginModal';
 import { 
   Product, 
@@ -39,7 +40,7 @@ import {
 export default function App() {
   // Navigation: Defaults to the primary module 'home' (Página Principal)
   const [activeTab, setActiveTab] = useState<
-    'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users'
+    'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users' | 'championships'
   >('home');
 
   // Application Data States
@@ -1156,6 +1157,8 @@ export default function App() {
             }}
           />
         )}
+
+        {activeTab === 'championships' && <ChampionshipsView />}
       </main>
 
       {/* Luxury Footer (Quiet, clean single row) */}
