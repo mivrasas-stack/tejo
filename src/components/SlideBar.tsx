@@ -11,17 +11,19 @@ import {
   ChevronLeft, 
   Wine, 
   AlertCircle, 
-  ShieldCheck,
   ChevronRight,
-  LogOut
+  PanelLeftOpen,
+  PanelLeftClose,
+  ShieldCheck
 } from 'lucide-react';
 import { User } from '../types';
 
 interface SlideBarProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations';
-  onSelectTab: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations') => void;
+  onToggle: () => void;
+  activeTab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users';
+  onSelectTab: (tab: 'home' | 'pos' | 'tabs' | 'inventory' | 'kardex' | 'accounting' | 'reservations' | 'users') => void;
   openTabsCount: number;
   lowStockCount: number;
   activeGamesCount: number;
@@ -32,6 +34,7 @@ interface SlideBarProps {
 export const SlideBar: React.FC<SlideBarProps> = ({
   isOpen,
   onClose,
+  onToggle,
   activeTab,
   onSelectTab,
   openTabsCount,
@@ -46,6 +49,7 @@ export const SlideBar: React.FC<SlideBarProps> = ({
       label: 'Boleo Rápido / POS',
       sublabel: 'Ventas directas en mostrador',
       icon: Zap,
+      iconStyle: 'bg-amber-500/15 border-amber-500/35 text-amber-400',
     },
     {
       id: 'tabs' as const,
@@ -53,6 +57,7 @@ export const SlideBar: React.FC<SlideBarProps> = ({
       sublabel: 'Comandas y consumo en mesa',
       icon: Users,
       badge: openTabsCount > 0 ? openTabsCount : undefined,
+      iconStyle: 'bg-sky-500/15 border-sky-500/35 text-sky-400',
     },
     {
       id: 'inventory' as const,
@@ -60,18 +65,21 @@ export const SlideBar: React.FC<SlideBarProps> = ({
       sublabel: 'Catálogo de botellas y stock',
       icon: Package,
       warning: lowStockCount > 0 ? lowStockCount : undefined,
+      iconStyle: 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400',
     },
     {
       id: 'kardex' as const,
       label: 'Kardex & Auditoría',
       sublabel: 'Movimientos y saldo continuo',
       icon: FileSpreadsheet,
+      iconStyle: 'bg-teal-500/15 border-teal-500/35 text-teal-400',
     },
     {
       id: 'accounting' as const,
       label: 'Contabilidad & Gastos',
       sublabel: 'Márgenes de ganancia y egresos',
       icon: CircleDollarSign,
+      iconStyle: 'bg-violet-500/15 border-violet-500/35 text-violet-400',
     },
     {
       id: 'reservations' as const,
@@ -79,23 +87,58 @@ export const SlideBar: React.FC<SlideBarProps> = ({
       sublabel: 'Pistas en juego y reservas',
       icon: Target,
       infoBadge: activeGamesCount > 0 ? `${activeGamesCount} en juego` : undefined,
+      iconStyle: 'bg-rose-500/15 border-rose-500/35 text-rose-400',
+    },
+    {
+      id: 'users' as const,
+      label: 'Usuarios & Administradores',
+      sublabel: 'Crear usuarios, claves y roles',
+      icon: ShieldCheck,
+      iconStyle: 'bg-indigo-500/15 border-indigo-500/35 text-indigo-400',
     },
   ];
 
-  if (!isOpen) return null;
-
   return (
     <>
-      {/* Backdrop overlay */}
-      <div 
-        onClick={onClose}
-        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
-      />
+      {/* Left-side floating toggle button when SlideBar is closed */}
+      {!isOpen && (
+        <button
+          onClick={onToggle}
+          className="fixed left-0 top-24 z-40 flex items-center gap-2 pl-2.5 pr-3.5 py-3 rounded-r-2xl bg-zinc-900/95 hover:bg-zinc-800 text-amber-300 border border-l-0 border-amber-500/40 shadow-2xl backdrop-blur-xl transition-all hover:pl-4 cursor-pointer group"
+          title="Abrir menú lateral"
+        >
+          <PanelLeftOpen className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+          <span className="text-xs font-bold tracking-wide text-zinc-100 hidden sm:inline">
+            Menú
+          </span>
+          {(openTabsCount > 0 || lowStockCount > 0) && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          )}
+        </button>
+      )}
 
-      {/* Slide-out Sidebar Panel (Apple Glass style) */}
-      <aside className="fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[85vw] bg-zinc-950/95 border-r border-zinc-800/90 backdrop-blur-2xl shadow-2xl flex flex-col justify-between animate-in slide-in-from-left duration-200 font-sans">
-        {/* Top Header */}
-        <div>
+      {/* Backdrop overlay */}
+      {isOpen && (
+        <div 
+          onClick={onClose}
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+        />
+      )}
+
+      {/* Slide-out Sidebar Panel on the Left */}
+      {isOpen && (
+        <aside className="fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[85vw] bg-zinc-950/95 border-r border-zinc-800/90 backdrop-blur-2xl shadow-2xl flex flex-col justify-between animate-in slide-in-from-left duration-200 font-sans">
+          {/* Lateral Close Handle on the edge of the open SlideBar */}
+          <button
+            onClick={onClose}
+            className="absolute -right-11 top-24 flex items-center justify-center w-11 h-11 rounded-r-2xl bg-zinc-900/95 hover:bg-zinc-800 text-amber-400 border border-l-0 border-amber-500/40 shadow-xl cursor-pointer transition-colors"
+            title="Cerrar menú lateral"
+          >
+            <PanelLeftClose className="w-5 h-5" />
+          </button>
+
+          {/* Top Header */}
+        <div className="flex-1 overflow-y-auto">
           <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400/20 via-amber-600/10 to-zinc-900 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
@@ -169,11 +212,7 @@ export const SlideBar: React.FC<SlideBarProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
-                        isActive 
-                          ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' 
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${item.iconStyle}`}>
                         <Icon className="w-4 h-4" />
                       </div>
                       <div className="truncate">
@@ -232,6 +271,7 @@ export const SlideBar: React.FC<SlideBarProps> = ({
           </div>
         </div>
       </aside>
+      )}
     </>
   );
 };

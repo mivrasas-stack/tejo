@@ -13,14 +13,19 @@ import {
   AlertTriangle,
   Zap,
   ArrowRight,
-  X
+  X,
+  Wine,
+  History,
+  Clock,
+  FileText
 } from 'lucide-react';
-import { Product, Category, CartItem, ClientTab, User } from '../types';
-import { formatCurrency } from '../services/storage';
+import { Product, Category, CartItem, ClientTab, AccountingTransaction, User } from '../types';
+import { formatCurrency, formatCOPInput, parseCOPInput, formatDate } from '../services/storage';
 
 interface FastPOSProps {
   products: Product[];
   clientTabs: ClientTab[];
+  transactions: AccountingTransaction[];
   activeUser: User;
   onCompleteSale: (
     cart: CartItem[], 
@@ -35,10 +40,15 @@ interface FastPOSProps {
 export const FastPOS: React.FC<FastPOSProps> = ({
   products,
   clientTabs,
+  transactions,
   activeUser,
   onCompleteSale,
   onChargeToTab,
 }) => {
+  const [posSubTab, setPosSubTab] = useState<'terminal' | 'history'>('terminal');
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyPaymentFilter, setHistoryPaymentFilter] = useState<'ALL' | 'EFECTIVO' | 'TRANSFERENCIA'>('ALL');
+  const [selectedHistoryTx, setSelectedHistoryTx] = useState<AccountingTransaction | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +63,7 @@ export const FastPOS: React.FC<FastPOSProps> = ({
   const [tabModalOpen, setTabModalOpen] = useState(false);
   const [selectedTabId, setSelectedTabId] = useState<string>('');
   const [newTabClientName, setNewTabClientName] = useState('');
-  const [newTabLocation, setNewTabLocation] = useState('Barra Principal');
+  const [newTabLocation, setNewTabLocation] = useState('Mesa 1');
 
   // Success ticket modal
   const [successReceipt, setSuccessReceipt] = useState<{
@@ -189,10 +199,98 @@ export const FastPOS: React.FC<FastPOSProps> = ({
     setNewTabClientName('');
   };
 
+  // All sales history (every INGRESO_VENTA transaction recorded across POS, Quick Table Pay, and Closed Tabs)
+  const salesHistory = useMemo(() => {
+    return transactions
+      .filter((tx) => tx.type === 'INGRESO_VENTA')
+      .filter((tx) => {
+        const matchesPayment =
+          historyPaymentFilter === 'ALL' || tx.paymentMethod === historyPaymentFilter;
+        const matchesSearch =
+          tx.description.toLowerCase().includes(historySearch.toLowerCase()) ||
+          tx.reference.toLowerCase().includes(historySearch.toLowerCase()) ||
+          tx.category.toLowerCase().includes(historySearch.toLowerCase()) ||
+          tx.registeredBy.toLowerCase().includes(historySearch.toLowerCase());
+        return matchesPayment && matchesSearch;
+      });
+  }, [transactions, historyPaymentFilter, historySearch]);
+
+  const totalSalesAmount = useMemo(
+    () => salesHistory.reduce((acc, tx) => acc + tx.amount, 0),
+    [salesHistory]
+  );
+  const totalCashSales = useMemo(
+    () =>
+      salesHistory
+        .filter((tx) => tx.paymentMethod === 'EFECTIVO')
+        .reduce((acc, tx) => acc + tx.amount, 0),
+    [salesHistory]
+  );
+  const totalTransferSales = useMemo(
+    () =>
+      salesHistory
+        .filter((tx) => tx.paymentMethod === 'TRANSFERENCIA')
+        .reduce((acc, tx) => acc + tx.amount, 0),
+    [salesHistory]
+  );
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* LEFT: Product Catalog & Fast Search (Col 8) */}
-      <div className="lg:col-span-8 flex flex-col gap-4">
+    <div className="space-y-5">
+      {/* Top Sub-Tab Selector inside Sales Module: Terminal POS vs Historial de Ventas */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/80 border border-zinc-800/80 p-2 rounded-2xl">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPosSubTab('terminal')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              posSubTab === 'terminal'
+                ? 'bg-amber-500 text-zinc-950 shadow-md shadow-amber-500/20'
+                : 'text-zinc-300 hover:bg-zinc-800'
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            <span>Terminal de Ventas (POS)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPosSubTab('history')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              posSubTab === 'history'
+                ? 'bg-amber-500 text-zinc-950 shadow-md shadow-amber-500/20'
+                : 'text-zinc-300 hover:bg-zinc-800'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>Historial de Ventas</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+                posSubTab === 'history'
+                  ? 'bg-zinc-950/20 text-zinc-950'
+                  : 'bg-amber-500/20 text-amber-300'
+              }`}
+            >
+              {transactions.filter((tx) => tx.type === 'INGRESO_VENTA').length}
+            </span>
+          </button>
+        </div>
+
+        <div className="px-3 text-xs text-zinc-400 font-mono flex items-center gap-2">
+          <span>Total ventas registradas:</span>
+          <strong className="text-emerald-400">
+            {formatCurrency(
+              transactions
+                .filter((tx) => tx.type === 'INGRESO_VENTA')
+                .reduce((a, b) => a + b.amount, 0)
+            )}
+          </strong>
+        </div>
+      </div>
+
+      {posSubTab === 'terminal' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* LEFT: Product Catalog & Fast Search (Col 8) */}
+          <div className="lg:col-span-8 flex flex-col gap-4">
         {/* Search bar & quick category bar */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div className="relative flex-1">
@@ -236,7 +334,7 @@ export const FastPOS: React.FC<FastPOSProps> = ({
           })}
         </div>
 
-        {/* Product Cards Grid - Fast High Flow Clickable */}
+        {/* Product Cards Grid - Fast High Flow Clickable with Image + Category, Name, Stock & Price */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredProducts.map((product) => {
             const inCart = cart.find((item) => item.product.id === product.id);
@@ -248,26 +346,36 @@ export const FastPOS: React.FC<FastPOSProps> = ({
                 key={product.id}
                 onClick={() => addToCart(product)}
                 disabled={isOutOfStock}
-                className={`relative group text-left p-3 rounded-xl border transition-all duration-150 flex flex-col justify-between h-[135px] select-none ${
+                className={`relative group text-left p-3 rounded-2xl border transition-all duration-150 flex flex-col justify-between select-none overflow-hidden ${
                   isOutOfStock
                     ? 'opacity-40 cursor-not-allowed bg-zinc-900/40 border-zinc-800/40'
                     : inCart
-                    ? 'bg-amber-500/10 border-amber-500/40 hover:bg-amber-500/15'
-                    : 'bg-zinc-900/70 border-zinc-800/80 hover:bg-zinc-800/90 hover:border-zinc-700 active:scale-[0.98]'
+                    ? 'bg-amber-500/15 border-amber-500/50 hover:bg-amber-500/20 shadow-lg shadow-amber-500/5'
+                    : 'bg-zinc-900/75 border-zinc-800/80 hover:bg-zinc-800/90 hover:border-amber-500/40 active:scale-[0.98]'
                 }`}
               >
-                {/* Top: Category & Stock indicator */}
-                <div className="flex items-start justify-between gap-1 w-full">
-                  <span className="text-[10px] text-zinc-400 font-medium truncate">
-                    {product.category} · {product.unit}
-                  </span>
-                  <div className="flex items-center gap-1">
+                {/* Product Image Banner (Larger full-bottle showcase with object-contain) */}
+                <div className="relative w-full h-40 rounded-xl overflow-hidden bg-zinc-950/90 border border-zinc-800/70 mb-2.5 flex items-center justify-center p-2">
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-zinc-600">
+                      <Wine className="w-9 h-9 text-amber-400/50" />
+                    </div>
+                  )}
+
+                  {/* Stock Badge Overlay on top-right of image */}
+                  <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-zinc-950/85 backdrop-blur-md border border-zinc-800/80">
                     {isOutOfStock ? (
                       <span className="text-[10px] text-rose-400 font-semibold">Agotado</span>
                     ) : (
                       <span
-                        className={`text-[11px] font-mono font-medium tabular-nums ${
-                          isLowStock ? 'text-amber-400' : 'text-zinc-400'
+                        className={`text-[10px] font-mono font-semibold tabular-nums ${
+                          isLowStock ? 'text-amber-300' : 'text-emerald-400'
                         }`}
                       >
                         {product.currentStock} disp.
@@ -276,7 +384,14 @@ export const FastPOS: React.FC<FastPOSProps> = ({
                   </div>
                 </div>
 
-                {/* Middle: Product Name */}
+                {/* Category & Unit */}
+                <div className="w-full">
+                  <span className="text-[10px] text-zinc-400 font-medium block truncate">
+                    {product.category} · {product.unit}
+                  </span>
+                </div>
+
+                {/* Product Name */}
                 <div className="my-1">
                   <h4 className="text-xs sm:text-sm font-semibold text-zinc-100 group-hover:text-amber-300 transition-colors line-clamp-2 leading-tight">
                     {product.name}
@@ -284,12 +399,12 @@ export const FastPOS: React.FC<FastPOSProps> = ({
                 </div>
 
                 {/* Bottom: Price and in-cart count */}
-                <div className="flex items-center justify-between w-full pt-1 border-t border-zinc-800/60">
+                <div className="flex items-center justify-between w-full pt-1.5 mt-1 border-t border-zinc-800/60">
                   <span className="text-xs sm:text-sm font-bold text-amber-400 font-mono tabular-nums">
                     {formatCurrency(product.salePrice)}
                   </span>
                   {inCart && (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-400 text-zinc-950 text-xs font-bold font-mono">
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-zinc-950 text-xs font-bold font-mono">
                       {inCart.quantity}
                     </span>
                   )}
@@ -316,8 +431,8 @@ export const FastPOS: React.FC<FastPOSProps> = ({
       </div>
 
       {/* RIGHT: Live Ticket / Active Order (Col 4) */}
-      <div className="lg:col-span-4 flex flex-col gap-4">
-        <div className="sticky top-20 rounded-2xl bg-zinc-900/90 border border-zinc-800/90 shadow-2xl p-4 flex flex-col h-[calc(100vh-6.5rem)]">
+      <div id="pos-ticket-panel" className="lg:col-span-4 flex flex-col gap-4">
+        <div className="sticky top-20 rounded-2xl bg-zinc-900/90 border border-zinc-800/90 shadow-2xl p-4 flex flex-col h-auto max-h-[78dvh] lg:max-h-none lg:h-[calc(100vh-6.5rem)]">
           {/* Header Ticket */}
           <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
             <div className="flex items-center gap-2">
@@ -430,6 +545,208 @@ export const FastPOS: React.FC<FastPOSProps> = ({
         </div>
       </div>
 
+      {/* Floating Mobile Quick Checkout Bar when cart has items */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-4 left-3 right-3 z-30 p-3 rounded-2xl bg-zinc-900/95 border border-amber-500/50 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-2">
+          <div
+            onClick={() => {
+              document.getElementById('pos-ticket-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="min-w-0 cursor-pointer"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">
+              {cart.reduce((a, b) => a + b.quantity, 0)} productos en comanda
+            </span>
+            <span className="text-base font-extrabold font-mono text-zinc-100 tabular-nums">
+              {formatCurrency(cartTotal)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('pos-ticket-panel')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-200 text-xs font-semibold"
+            >
+              Ver
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCheckout}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 text-zinc-950 text-xs font-bold flex items-center gap-1 shadow-lg shadow-amber-500/20"
+            >
+              <Banknote className="w-3.5 h-3.5" />
+              <span>Cobrar</span>
+            </button>
+          </div>
+        </div>
+      )}
+        </div>
+      ) : (
+        /* PESTAÑA 2: HISTORIAL COMPLETO DE TODAS LAS VENTAS */
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                Total Ventas (Filtro Actual)
+              </span>
+              <p className="text-2xl font-bold text-amber-400 font-mono tabular-nums mt-1">
+                {formatCurrency(totalSalesAmount)}
+              </p>
+              <span className="text-[11px] text-zinc-500 mt-1 block">
+                {salesHistory.length} transacciones registradas
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-900/90 border border-emerald-500/25">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                Ventas en Efectivo
+              </span>
+              <p className="text-2xl font-bold text-emerald-400 font-mono tabular-nums mt-1">
+                {formatCurrency(totalCashSales)}
+              </p>
+              <span className="text-[11px] text-zinc-500 mt-1 block">
+                Dinero recibido en caja
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-900/90 border border-sky-500/25">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                Ventas por Transferencia
+              </span>
+              <p className="text-2xl font-bold text-sky-400 font-mono tabular-nums mt-1">
+                {formatCurrency(totalTransferSales)}
+              </p>
+              <span className="text-[11px] text-zinc-500 mt-1 block">
+                Nequi / Daviplata / Bancos
+              </span>
+            </div>
+          </div>
+
+          {/* Search & Payment Filter Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/70 border border-zinc-800 p-3.5 rounded-2xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Buscar por producto vendido, mesa, cliente, #referencia o cajero..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {(['ALL', 'EFECTIVO', 'TRANSFERENCIA'] as const).map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setHistoryPaymentFilter(method)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    historyPaymentFilter === method
+                      ? 'bg-amber-500 text-zinc-950'
+                      : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                  }`}
+                >
+                  {method === 'ALL' ? 'Todos' : method === 'EFECTIVO' ? 'Efectivo' : 'Transferencia'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Complete Sales History Table */}
+          <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 overflow-hidden shadow-xl">
+            <div className="px-5 py-3.5 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <h3 className="text-sm font-bold text-zinc-100">
+                  Registro Completo de Ventas Realizadas
+                </h3>
+              </div>
+              <span className="text-xs text-zinc-400 font-mono">
+                Mostrando {salesHistory.length} registros
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-950/60">
+                    <th className="py-3 px-4">Fecha y Hora</th>
+                    <th className="py-3 px-4">Referencia</th>
+                    <th className="py-3 px-4">Origen</th>
+                    <th className="py-3 px-4">Detalle de lo Vendido</th>
+                    <th className="py-3 px-4">Método de Pago</th>
+                    <th className="py-3 px-4">Registrado por</th>
+                    <th className="py-3 px-4 text-right">Total Venta</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60 text-xs">
+                  {salesHistory.map((tx) => (
+                    <tr
+                      key={tx.id}
+                      onClick={() => setSelectedHistoryTx(tx)}
+                      className="hover:bg-amber-500/10 transition-colors cursor-pointer group"
+                      title="Haz clic para ver el detalle completo del consumo"
+                    >
+                      <td className="py-3.5 px-4 font-mono text-zinc-300 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                          <span>{formatDate(tx.timestamp)}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-amber-400 whitespace-nowrap">
+                        {tx.reference}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-200 text-[11px] font-medium">
+                          {tx.location || tx.category}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-zinc-100 max-w-md">
+                        <div className="font-medium group-hover:text-amber-300 transition-colors">
+                          {tx.description}
+                        </div>
+                        <span className="text-[10px] text-amber-400/80 underline">
+                          Clic para ver desglose detallado →
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+                            tx.paymentMethod === 'EFECTIVO'
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                          }`}
+                        >
+                          {tx.paymentMethod}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-zinc-400 whitespace-nowrap">
+                        {tx.registeredBy}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400 tabular-nums whitespace-nowrap">
+                        {formatCurrency(tx.amount)}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {salesHistory.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-zinc-500">
+                        No se encontraron ventas con los filtros seleccionados.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 1: Quick Payment Checkout */}
       {checkoutModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -499,12 +816,14 @@ export const FastPOS: React.FC<FastPOSProps> = ({
             {paymentMethod === 'EFECTIVO' && (
               <div className="space-y-3 bg-zinc-950/70 p-4 rounded-xl border border-zinc-800">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-400">Efectivo Recibido:</span>
-                  <div className="relative w-40">
+                  <span className="text-zinc-400">Efectivo Recibido (COP):</span>
+                  <div className="relative w-44">
                     <input
-                      type="number"
-                      value={cashReceived || ''}
-                      onChange={(e) => setCashReceived(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatCOPInput(cashReceived)}
+                      onChange={(e) => setCashReceived(parseCOPInput(e.target.value))}
+                      placeholder="Ej. $ 100.000"
                       className="w-full text-right px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-amber-400 font-mono font-bold text-sm focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -650,12 +969,15 @@ export const FastPOS: React.FC<FastPOSProps> = ({
                   onChange={(e) => setNewTabLocation(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
                 >
-                  <option value="Barra Principal">Barra Principal</option>
-                  <option value="Zona VIP Black Lounge">Zona VIP Black Lounge</option>
-                  <option value="Cancha Sintética 1 (Fútbol 5)">Cancha Sintética 1 (Fútbol 5)</option>
-                  <option value="Cancha Sintética 2 (Fútbol 5)">Cancha Sintética 2 (Fútbol 5)</option>
-                  <option value="Cancha de Pádel Pro">Cancha de Pádel Pro</option>
-                  <option value="Terraza Jardín Panorámica">Terraza Jardín Panorámica</option>
+                  <option value="Mesa 1">Mesa 1</option>
+                  <option value="Mesa 2">Mesa 2</option>
+                  <option value="Mesa 3">Mesa 3</option>
+                  <option value="Mesa 4">Mesa 4</option>
+                  <option value="Mesa 5">Mesa 5</option>
+                  <option value="Mesa 6">Mesa 6</option>
+                  <option value="Mesa 7">Mesa 7</option>
+                  <option value="Mesa 8">Mesa 8</option>
+                  <option value="Cancha de Tejo">Cancha de Tejo</option>
                 </select>
               </div>
             </div>
@@ -749,6 +1071,116 @@ export const FastPOS: React.FC<FastPOSProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold"
               >
                 Siguiente Venta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Detalle Completo de Venta / Mesa al pulsar en el Historial */}
+      {selectedHistoryTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-zinc-100">
+                    Detalle de Venta {selectedHistoryTx.reference}
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase">
+                    {selectedHistoryTx.paymentMethod}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {selectedHistoryTx.location || selectedHistoryTx.category} · Registrado por{' '}
+                  {selectedHistoryTx.registeredBy}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedHistoryTx(null)}
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs bg-zinc-950/70 p-3.5 rounded-2xl border border-zinc-800">
+              <div>
+                <span className="text-zinc-500 block">Fecha y Hora:</span>
+                <span className="font-mono text-zinc-200 font-semibold">
+                  {formatDate(selectedHistoryTx.timestamp)}
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block">Mesa / Origen:</span>
+                <span className="font-semibold text-amber-400">
+                  {selectedHistoryTx.location || selectedHistoryTx.clientName || selectedHistoryTx.category}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 block">
+                Desglose Detallado del Consumo
+              </span>
+
+              {(() => {
+                const matchedTab = clientTabs.find(
+                  (t) =>
+                    selectedHistoryTx.reference.endsWith(t.id.slice(-4)) ||
+                    (selectedHistoryTx.location && t.location === selectedHistoryTx.location && t.total === selectedHistoryTx.amount)
+                );
+                const detailItems = selectedHistoryTx.items || matchedTab?.items || [];
+
+                return detailItems.length > 0 ? (
+                  <div className="max-h-64 overflow-y-auto divide-y divide-zinc-800/70 rounded-2xl bg-zinc-950 border border-zinc-800 p-3">
+                    {detailItems.map((it) => (
+                      <div key={it.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-zinc-100">
+                            {it.quantity}x {it.productName}
+                          </p>
+                          <p className="text-[11px] text-zinc-400 font-mono">
+                            {formatCurrency(it.unitPrice)} c/u · {it.category}
+                          </p>
+                        </div>
+                        <div className="text-right font-mono font-bold text-amber-400 shrink-0">
+                          {formatCurrency(it.subtotal)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-200">
+                    {selectedHistoryTx.description}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+              <span className="text-sm font-bold text-zinc-300">Total Pagado:</span>
+              <span className="text-xl font-extrabold font-mono text-emerald-400">
+                {formatCurrency(selectedHistoryTx.amount)}
+              </span>
+            </div>
+
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedHistoryTx(null)}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold cursor-pointer"
+              >
+                Cerrar Detalle
               </button>
             </div>
           </div>

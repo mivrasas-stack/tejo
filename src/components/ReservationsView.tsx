@@ -30,7 +30,7 @@ import {
   ReservationStatus, 
   PaymentMethod 
 } from '../types';
-import { formatCurrency, formatShortDate } from '../services/storage';
+import { formatCurrency, formatShortDate, formatCOPInput, parseCOPInput } from '../services/storage';
 
 interface ReservationsViewProps {
   reservations: Reservation[];
@@ -612,8 +612,8 @@ export const ReservationsView: React.FC<ReservationsViewProps> = ({
 
       {/* MODAL 1: NUEVA RESERVA DE TEJO / BOLIRANA */}
       {newReservationModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-lg w-full max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
@@ -718,13 +718,13 @@ export const ReservationsView: React.FC<ReservationsViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Abono / Anticipo ($)</label>
+                  <label className="text-xs text-zinc-400 block mb-1">Abono / Anticipo (COP)</label>
                   <input
-                    type="number"
-                    min={0}
-                    step={5000}
-                    value={resDepositAmount}
-                    onChange={(e) => setResDepositAmount(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatCOPInput(resDepositAmount)}
+                    onChange={(e) => setResDepositAmount(parseCOPInput(e.target.value))}
+                    placeholder="Ej. $ 30.000"
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -823,25 +823,25 @@ export const ReservationsView: React.FC<ReservationsViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Tarifa por Hora ($)</label>
+                  <label className="text-xs text-zinc-400 block mb-1">Tarifa por Hora (COP)</label>
                   <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={trackHourlyRate}
-                    onChange={(e) => setTrackHourlyRate(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatCOPInput(trackHourlyRate)}
+                    onChange={(e) => setTrackHourlyRate(parseCOPInput(e.target.value))}
+                    placeholder="Ej. $ 35.000"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-sm text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Tarifa por Chico ($)</label>
+                  <label className="text-xs text-zinc-400 block mb-1">Tarifa por Chico (COP)</label>
                   <input
-                    type="number"
-                    min={0}
-                    step={500}
-                    value={trackPricePerGame}
-                    onChange={(e) => setTrackPricePerGame(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatCOPInput(trackPricePerGame)}
+                    onChange={(e) => setTrackPricePerGame(parseCOPInput(e.target.value))}
+                    placeholder="Ej. $ 5.000"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-sm text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>

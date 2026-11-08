@@ -12,26 +12,32 @@ import {
 export const SYSTEM_USERS: User[] = [
   {
     id: 'user-admin',
+    username: 'admin',
+    password: 'Admin2026*',
     name: 'Fernando Gómez',
     role: 'admin',
     roleTitle: 'Administrador General',
-    email: 'fernando@auralicorera.com',
+    email: 'admin@aura.com',
     pin: '1234',
   },
   {
     id: 'user-bartender',
+    username: 'barra',
+    password: 'Barra2026*',
     name: 'Mateo Barrientos',
     role: 'bartender',
     roleTitle: 'Jefe de Barra & POS',
-    email: 'mateo@auralicorera.com',
+    email: 'barra@aura.com',
     pin: '2222',
   },
   {
     id: 'user-mesero',
+    username: 'mesero',
+    password: 'Mesas2026*',
     name: 'Sebastián Mora',
     role: 'mesero',
     roleTitle: 'Capitán de Servicio & Canchas',
-    email: 'sebastian@auralicorera.com',
+    email: 'mesero@aura.com',
     pin: '3333',
   },
 ];
@@ -939,9 +945,58 @@ const STORAGE_KEYS = {
   EXPENSES: 'aura_pos_expenses',
   ACTIVE_USER: 'aura_pos_active_user',
   GAME_TRACKS: 'aura_pos_game_tracks',
+  TABLES: 'aura_pos_tables',
+  USERS: 'aura_pos_users',
 };
 
+export const INITIAL_TABLES: string[] = [
+  'Mesa 1',
+  'Mesa 2',
+  'Mesa 3',
+  'Mesa 4',
+  'Mesa 5',
+  'Mesa 6',
+  'Mesa 7',
+  'Mesa 8',
+  'Cancha de Tejo',
+];
+
 export const storageService = {
+  getUsers(): User[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(SYSTEM_USERS));
+      return SYSTEM_USERS;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : SYSTEM_USERS;
+    } catch {
+      return SYSTEM_USERS;
+    }
+  },
+
+  saveUsers(users: User[]): void {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  },
+
+  getTables(): string[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.TABLES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(INITIAL_TABLES));
+      return INITIAL_TABLES;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_TABLES;
+    } catch {
+      return INITIAL_TABLES;
+    }
+  },
+
+  saveTables(tables: string[]): void {
+    localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(tables));
+  },
   getProducts(): Product[] {
     const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     if (!raw) {
@@ -1109,19 +1164,30 @@ export const storageService = {
   },
 
   getActiveUser(): User {
+    const users = this.getUsers();
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        const found = users.find((u) => u.id === parsed.id);
+        return found || parsed;
       } catch {
         // fallback
       }
     }
-    return SYSTEM_USERS[0]; // Admin by default
+    return users[0] || SYSTEM_USERS[0]; // Admin by default
   },
 
   setActiveUser(user: User): void {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
+  },
+
+  isAuthenticated(): boolean {
+    return localStorage.getItem('aura_pos_authenticated') === 'true';
+  },
+
+  setAuthenticated(auth: boolean): void {
+    localStorage.setItem('aura_pos_authenticated', auth ? 'true' : 'false');
   },
 
   resetToDemo(): void {
@@ -1130,11 +1196,24 @@ export const storageService = {
 };
 
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return (
+    new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(amount) + ' COP'
+  );
+};
+
+export const formatCOPInput = (value: number | string): string => {
+  const digits = String(value ?? '').replace(/\D/g, '').replace(/^0+/, '');
+  if (!digits) return '';
+  return '$ ' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(digits));
+};
+
+export const parseCOPInput = (raw: string): number => {
+  const digits = raw.replace(/\D/g, '').replace(/^0+/, '');
+  return digits ? Number(digits) : 0;
 };
 
 export const formatShortDate = (iso: string): string => {
@@ -1145,3 +1224,5 @@ export const formatShortDate = (iso: string): string => {
     return iso;
   }
 };
+
+export const formatDate = formatShortDate;

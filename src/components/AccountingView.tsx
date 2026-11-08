@@ -31,7 +31,7 @@ import {
   PaymentMethod,
   Category 
 } from '../types';
-import { formatCurrency, formatShortDate } from '../services/storage';
+import { formatCurrency, formatShortDate, formatCOPInput, parseCOPInput } from '../services/storage';
 
 interface AccountingViewProps {
   transactions: AccountingTransaction[];
@@ -81,6 +81,7 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
 
   // Transactions Filter
   const [txMethodFilter, setTxMethodFilter] = useState<string>('ALL');
+  const [selectedTxDetail, setSelectedTxDetail] = useState<AccountingTransaction | null>(null);
 
   // 1. Calculate units sold per product from Kardex movements
   const unitsSoldMap = useMemo(() => {
@@ -246,11 +247,11 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
         </div>
 
         {/* Navigation Tabs between Margins, Expenses, and Transactions */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveSubTab('MARGINS')}
-              className={`px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`px-3 sm:px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 activeSubTab === 'MARGINS'
                   ? 'bg-amber-500 text-zinc-950 shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -260,17 +261,17 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
             </button>
             <button
               onClick={() => setActiveSubTab('EXPENSES')}
-              className={`px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`px-3 sm:px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 activeSubTab === 'EXPENSES'
                   ? 'bg-amber-500 text-zinc-950 shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Gastos del Negocio ({expenses.length})
+              Gastos ({expenses.length})
             </button>
             <button
               onClick={() => setActiveSubTab('TRANSACTIONS')}
-              className={`px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`px-3 sm:px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 activeSubTab === 'TRANSACTIONS'
                   ? 'bg-amber-500 text-zinc-950 shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -283,7 +284,7 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
           {activeSubTab === 'EXPENSES' && (
             <button
               onClick={() => setNewExpenseModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md shadow-amber-500/10 cursor-pointer"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md shadow-amber-500/10 cursor-pointer w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               <span>Registrar Gasto</span>
@@ -799,7 +800,12 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
                     .map((tx) => {
                       const isIncome = tx.type === 'INGRESO_VENTA';
                       return (
-                        <tr key={tx.id} className="hover:bg-zinc-850/50 transition-colors">
+                        <tr
+                          key={tx.id}
+                          onClick={() => setSelectedTxDetail(tx)}
+                          className="hover:bg-amber-500/10 transition-colors cursor-pointer group"
+                          title="Haz clic para ver el detalle completo del consumo"
+                        >
                           <td className="py-3 px-4 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
                             {formatShortDate(tx.timestamp)}
                           </td>
@@ -811,12 +817,16 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
                                   : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                               }`}
                             >
-                              {tx.category}
+                              {tx.location || tx.category}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-zinc-200">
-                            <div className="font-medium">{tx.description}</div>
-                            <div className="font-mono text-[10px] text-zinc-500">{tx.reference}</div>
+                            <div className="font-medium group-hover:text-amber-300 transition-colors">
+                              {tx.description}
+                            </div>
+                            <div className="font-mono text-[10px] text-amber-400/80 underline">
+                              {tx.reference} · Clic para ver detalle →
+                            </div>
                           </td>
                           <td className="py-3 px-3 text-center font-mono text-xs text-zinc-300">
                             {tx.paymentMethod}
@@ -844,10 +854,10 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
 
       {/* MODAL: REGISTRAR GASTO DEL NEGOCIO */}
       {newExpenseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4">
           <form
             onSubmit={handleCreateExpense}
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4"
           >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div>
@@ -868,15 +878,15 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="col-span-2">
                 <label className="block font-semibold text-zinc-300 mb-1">
-                  Monto del Gasto ($):
+                  Monto del Gasto (COP):
                 </label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formAmount || ''}
-                  onChange={(e) => setFormAmount(Number(e.target.value))}
-                  placeholder="Ej. 120000"
+                  value={formatCOPInput(formAmount)}
+                  onChange={(e) => setFormAmount(parseCOPInput(e.target.value))}
+                  placeholder="Ej. $ 120.000"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-rose-400 font-bold font-mono text-base focus:outline-none focus:border-rose-500"
                 />
               </div>
@@ -987,6 +997,121 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* MODAL DE DETALLE DEL CONSUMO AL PULSAR UNA VENTA EN LIBRO DE VENTAS */}
+      {selectedTxDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-zinc-100">
+                    Detalle de Operación {selectedTxDetail.reference}
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase">
+                    {selectedTxDetail.paymentMethod}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {selectedTxDetail.location || selectedTxDetail.category} · Registrado por{' '}
+                  {selectedTxDetail.registeredBy}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTxDetail(null)}
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs bg-zinc-950/70 p-3.5 rounded-2xl border border-zinc-800">
+              <div>
+                <span className="text-zinc-500 block">Fecha y Hora:</span>
+                <span className="font-mono text-zinc-200 font-semibold">
+                  {formatShortDate(selectedTxDetail.timestamp)}
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block">Mesa / Categoría:</span>
+                <span className="font-semibold text-amber-400">
+                  {selectedTxDetail.location || selectedTxDetail.clientName || selectedTxDetail.category}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 block">
+                Productos Consumidos / Detalle
+              </span>
+
+              {(() => {
+                const matchedKardex = kardexMovements.filter(
+                  (m) => m.referenceDoc === selectedTxDetail.reference
+                );
+                const detailItems =
+                  selectedTxDetail.items && selectedTxDetail.items.length > 0
+                    ? selectedTxDetail.items
+                    : matchedKardex.map((m) => ({
+                        id: m.id,
+                        productId: m.productId,
+                        productName: m.productName,
+                        category: m.category,
+                        unit: 'Unidad' as const,
+                        unitPrice: m.unitPrice,
+                        costPrice: m.unitCost,
+                        quantity: Math.abs(m.quantity),
+                        subtotal: m.totalPrice,
+                        addedAt: m.timestamp,
+                        addedBy: m.performedBy,
+                      }));
+
+                return detailItems.length > 0 ? (
+                  <div className="max-h-64 overflow-y-auto divide-y divide-zinc-800/70 rounded-2xl bg-zinc-950 border border-zinc-800 p-3">
+                    {detailItems.map((it) => (
+                      <div key={it.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-zinc-100">
+                            {it.quantity}x {it.productName}
+                          </p>
+                          <p className="text-[11px] text-zinc-400 font-mono">
+                            {formatCurrency(it.unitPrice)} c/u · {it.category}
+                          </p>
+                        </div>
+                        <div className="text-right font-mono font-bold text-amber-400 shrink-0">
+                          {formatCurrency(it.subtotal)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-200">
+                    {selectedTxDetail.description}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+              <span className="text-sm font-bold text-zinc-300">Monto Total:</span>
+              <span className="text-xl font-extrabold font-mono text-emerald-400">
+                {formatCurrency(selectedTxDetail.amount)}
+              </span>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedTxDetail(null)}
+                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold cursor-pointer"
+              >
+                Cerrar Detalle
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -45,11 +45,12 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
   
   // Dedicated modal for checking out / closing a tab
   const [tabToCheckout, setTabToCheckout] = useState<ClientTab | null>(null);
+  const [selectedClosedTabDetail, setSelectedClosedTabDetail] = useState<ClientTab | null>(null);
 
   // New tab creation modal
   const [newTabModalOpen, setNewTabModalOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
-  const [newLocation, setNewLocation] = useState('Barra Principal');
+  const [newLocation, setNewLocation] = useState('Mesa 1');
   const [newNotes, setNewNotes] = useState('');
 
   // Drink search inside the add drink modal
@@ -213,7 +214,7 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
 
     onCreateTab(newClientName.trim(), newLocation, newNotes.trim() || undefined);
     setNewClientName('');
-    setNewLocation('Barra Principal');
+    setNewLocation('Mesa 1');
     setNewNotes('');
     setNewTabModalOpen(false);
   };
@@ -241,11 +242,11 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs overflow-x-auto max-w-full">
             <button
               onClick={() => setTabStatusFilter('ABIERTA')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 tabStatusFilter === 'ABIERTA'
                   ? 'bg-amber-500 text-zinc-950 font-semibold shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -255,17 +256,17 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
             </button>
             <button
               onClick={() => setTabStatusFilter('PAGADA')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap ${
                 tabStatusFilter === 'PAGADA'
                   ? 'bg-amber-500 text-zinc-950 font-semibold shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Cerradas Hoy
+              Cerradas Hoy ({clientTabs.filter((t) => t.status === 'PAGADA').length})
             </button>
             <button
               onClick={() => setTabStatusFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 tabStatusFilter === 'ALL'
                   ? 'bg-amber-500 text-zinc-950 font-semibold shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -277,7 +278,7 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
 
           <button
             onClick={() => setNewTabModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md shadow-amber-500/10 cursor-pointer"
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md shadow-amber-500/10 cursor-pointer w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Abrir Nueva Cuenta</span>
@@ -306,10 +307,13 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
           return (
             <div
               key={tab.id}
+              onClick={() => {
+                if (!isOpen) setSelectedClosedTabDetail(tab);
+              }}
               className={`p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between select-none relative overflow-hidden ${
                 isOpen
                   ? 'bg-zinc-900/90 border-zinc-800 shadow-lg'
-                  : 'bg-zinc-950/60 border-zinc-900 opacity-60'
+                  : 'bg-zinc-900/75 border-zinc-800/80 hover:border-amber-500/50 cursor-pointer shadow-md'
               }`}
             >
               {/* Subtle top indicator bar */}
@@ -417,9 +421,19 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div className="p-2 rounded-lg bg-zinc-950 text-center text-xs text-zinc-500">
-                    Cuenta cerrada y liquidada
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedClosedTabDetail(tab);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-300 font-semibold text-xs flex items-center justify-between transition-all border border-zinc-700/60 cursor-pointer"
+                  >
+                    <span>
+                      Pagada ({tab.paymentMethod || 'EFECTIVO'}) · Ver Detalle
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-amber-400" />
+                  </button>
                 )}
               </div>
             </div>
@@ -501,9 +515,9 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
             )}
 
             {/* Body */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-y-auto lg:overflow-hidden min-h-0">
               {/* LEFT: Clickable Drink Catalog (Col 7) */}
-              <div className="lg:col-span-7 p-4 sm:p-5 flex flex-col gap-3 border-r border-zinc-800 overflow-hidden bg-zinc-900/40">
+              <div className="lg:col-span-7 p-4 sm:p-5 flex flex-col gap-3 border-b lg:border-b-0 lg:border-r border-zinc-800 lg:overflow-hidden bg-zinc-900/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Catálogo de Tragos Disponibles (1 Toque para Sumar)
@@ -541,8 +555,8 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
                   )}
                 </div>
 
-                {/* Clickable Drink Grid */}
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2.5 pr-1">
+                {/* Clickable Drink Grid with Product Image + Category, Name, Price & Stock */}
+                <div className="overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2.5 pr-1 max-h-[260px] sm:max-h-[340px] lg:max-h-none lg:flex-1">
                   {modalFilteredDrinks.map((product) => {
                     const isOutOfStock = product.currentStock <= 0;
                     return (
@@ -550,14 +564,26 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
                         key={product.id}
                         disabled={isOutOfStock}
                         onClick={() => handleAddDrinkToTab(product)}
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between h-28 group relative cursor-pointer ${
+                        className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between group relative cursor-pointer ${
                           isOutOfStock
                             ? 'opacity-40 cursor-not-allowed bg-zinc-950 border-zinc-900'
                             : 'bg-zinc-950/80 border-zinc-800/80 hover:border-amber-500/50 hover:bg-zinc-850 active:scale-[0.97]'
                         }`}
                       >
+                        <div className="w-full h-32 rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800/70 mb-2 flex items-center justify-center p-1.5">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <Wine className="w-7 h-7 text-amber-400/50" />
+                          )}
+                        </div>
+
                         <div>
-                          <span className="text-[10px] text-zinc-500 block truncate">
+                          <span className="text-[10px] text-zinc-400 block truncate">
                             {product.category} · {product.unit}
                           </span>
                           <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-amber-300 leading-tight mt-0.5 line-clamp-2">
@@ -565,7 +591,7 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
                           </h4>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60 mt-auto">
+                        <div className="flex items-center justify-between pt-1.5 border-t border-zinc-800/60 mt-2">
                           <span className="text-xs font-mono font-bold text-amber-400 tabular-nums">
                             {formatCurrency(product.salePrice)}
                           </span>
@@ -748,15 +774,15 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
                   onChange={(e) => setNewLocation(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
                 >
-                  <option value="Barra Principal & Coctelería">Barra Principal & Coctelería</option>
-                  <option value="Zona VIP Black Lounge">Zona VIP Black Lounge</option>
-                  <option value="Cancha Sintética 1 (Fútbol 5)">Cancha Sintética 1 (Fútbol 5)</option>
-                  <option value="Cancha Sintética 2 (Fútbol 5)">Cancha Sintética 2 (Fútbol 5)</option>
-                  <option value="Cancha de Pádel Pro">Cancha de Pádel Pro</option>
-                  <option value="Terraza Jardín Panorámica">Terraza Jardín Panorámica</option>
-                  <option value="Mesa 1 Salón">Mesa 1 Salón</option>
-                  <option value="Mesa 2 Salón">Mesa 2 Salón</option>
-                  <option value="Mesa 3 Salón">Mesa 3 Salón</option>
+                  <option value="Mesa 1">Mesa 1</option>
+                  <option value="Mesa 2">Mesa 2</option>
+                  <option value="Mesa 3">Mesa 3</option>
+                  <option value="Mesa 4">Mesa 4</option>
+                  <option value="Mesa 5">Mesa 5</option>
+                  <option value="Mesa 6">Mesa 6</option>
+                  <option value="Mesa 7">Mesa 7</option>
+                  <option value="Mesa 8">Mesa 8</option>
+                  <option value="Cancha de Tejo">Cancha de Tejo</option>
                 </select>
               </div>
 
@@ -904,6 +930,105 @@ export const ClientTabsView: React.FC<ClientTabsViewProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md shadow-amber-500/10"
               >
                 Confirmar y Cobrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DETALLE COMPLETO DE CUENTA CERRADA / PAGADA */}
+      {selectedClosedTabDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-zinc-100">
+                    Detalle de Consumo: {selectedClosedTabDetail.location}
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase">
+                    PAGADA ({selectedClosedTabDetail.paymentMethod || 'EFECTIVO'})
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Cliente / Mesa: {selectedClosedTabDetail.clientName} · Atendido por {selectedClosedTabDetail.waiterName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedClosedTabDetail(null)}
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs bg-zinc-950/70 p-3.5 rounded-2xl border border-zinc-800">
+              <div>
+                <span className="text-zinc-500 block">Hora de Apertura:</span>
+                <span className="font-mono text-zinc-200 font-semibold">
+                  {formatShortDate(selectedClosedTabDetail.openedAt)}
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block">Hora de Cierre / Pago:</span>
+                <span className="font-mono text-emerald-400 font-semibold">
+                  {selectedClosedTabDetail.closedAt
+                    ? formatShortDate(selectedClosedTabDetail.closedAt)
+                    : 'Liquidada hoy'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-zinc-400">
+                <span>Productos Consumidos en la Mesa</span>
+                <span className="font-mono text-amber-400">
+                  {selectedClosedTabDetail.items.reduce((a, b) => a + b.quantity, 0)} unidades
+                </span>
+              </div>
+
+              <div className="max-h-64 overflow-y-auto divide-y divide-zinc-800/70 rounded-2xl bg-zinc-950 border border-zinc-800 p-3">
+                {selectedClosedTabDetail.items.map((item) => (
+                  <div key={item.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-zinc-100">
+                        {item.quantity}x {item.productName}
+                      </p>
+                      <p className="text-[11px] text-zinc-400 font-mono">
+                        {formatCurrency(item.unitPrice)} c/u · {item.category}
+                      </p>
+                    </div>
+                    <div className="text-right font-mono font-bold text-amber-400 shrink-0">
+                      {formatCurrency(item.subtotal)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+              <span className="text-sm font-bold text-zinc-300">Total Pagado:</span>
+              <span className="text-xl font-extrabold font-mono text-emerald-400">
+                {formatCurrency(selectedClosedTabDetail.total)}
+              </span>
+            </div>
+
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir Comprobante</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedClosedTabDetail(null)}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold cursor-pointer"
+              >
+                Cerrar Detalle
               </button>
             </div>
           </div>

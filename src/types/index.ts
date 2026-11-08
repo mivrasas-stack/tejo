@@ -2,6 +2,8 @@ export type UserRole = 'admin' | 'bartender' | 'mesero';
 
 export interface User {
   id: string;
+  username?: string;
+  password?: string;
   name: string;
   role: UserRole;
   roleTitle: string;
@@ -184,6 +186,9 @@ export interface AccountingTransaction {
   description: string;
   registeredBy: string;
   expenseCategory?: string;
+  location?: string;
+  clientName?: string;
+  items?: TabItem[];
 }
 
 export interface ProductProfitMargin {

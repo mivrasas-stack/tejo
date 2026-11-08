@@ -13,10 +13,11 @@ import {
   Check, 
   ShieldAlert,
   ArrowUpDown,
-  DollarSign
+  DollarSign,
+  ImagePlus
 } from 'lucide-react';
 import { Product, Category, ProductUnit, User } from '../types';
-import { formatCurrency } from '../services/storage';
+import { formatCurrency, formatCOPInput, parseCOPInput } from '../services/storage';
 
 interface InventoryViewProps {
   products: Product[];
@@ -68,6 +69,46 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [formMinStock, setFormMinStock] = useState<number>(4);
   const [formSupplier, setFormSupplier] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formImage, setFormImage] = useState('');
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 640;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          setFormImage(canvas.toDataURL('image/webp', 0.9));
+        } else if (typeof event.target?.result === 'string') {
+          setFormImage(event.target.result);
+        }
+      };
+      if (typeof event.target?.result === 'string') {
+        img.src = event.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Metrics
   const metrics = useMemo(() => {
@@ -112,12 +153,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setFormName('');
     setFormCategory('Whisky');
     setFormUnit('Botella');
-    setFormCostPrice(50000);
-    setFormSalePrice(90000);
-    setFormCurrentStock(12);
-    setFormMinStock(4);
+    setFormCostPrice(0);
+    setFormSalePrice(0);
+    setFormCurrentStock(0);
+    setFormMinStock(0);
     setFormSupplier('Distribuidor Autorizado');
     setFormDescription('');
+    setFormImage('');
     setAddModalOpen(true);
   };
 
@@ -133,6 +175,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setFormMinStock(p.minStock);
     setFormSupplier(p.supplier);
     setFormDescription(p.description || '');
+    setFormImage(p.image || '');
   };
 
   const handleSaveAdd = (e: React.FormEvent) => {
@@ -148,6 +191,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       minStock: formMinStock,
       supplier: formSupplier,
       description: formDescription,
+      image: formImage.trim() || undefined,
       isAlcohol: true,
     });
     setAddModalOpen(false);
@@ -168,6 +212,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       minStock: formMinStock,
       supplier: formSupplier,
       description: formDescription,
+      image: formImage.trim() || undefined,
       lastUpdated: new Date().toISOString(),
     });
     setEditProduct(null);
@@ -332,9 +377,17 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     {/* Name & SKU */}
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 text-amber-400 font-semibold text-xs">
-                          {p.name.charAt(0)}
-                        </div>
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="w-14 h-14 rounded-xl object-contain p-1 bg-zinc-950/80 border border-zinc-700/60 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 text-amber-400 font-semibold text-sm">
+                            {p.name.charAt(0)}
+                          </div>
+                        )}
                         <div>
                           <div className="font-semibold text-zinc-100">{p.name}</div>
                           <div className="font-mono text-[10px] text-zinc-500">{p.sku}</div>
@@ -441,10 +494,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
       {/* MODAL 1: ADD PRODUCT */}
       {addModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4">
           <form
             onSubmit={handleSaveAdd}
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4"
           >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <h3 className="text-base font-bold text-zinc-100">Agregar Nuevo Producto / Trago</h3>
@@ -457,8 +510,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="sm:col-span-2">
                 <label className="block font-semibold text-zinc-300 mb-1">Nombre Comercial del Trago:</label>
                 <input
                   type="text"
@@ -525,23 +578,27 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1">Costo de Compra ($):</label>
+                <label className="block font-semibold text-zinc-300 mb-1">Costo de Compra (COP):</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formCostPrice}
-                  onChange={(e) => setFormCostPrice(Number(e.target.value))}
+                  value={formatCOPInput(formCostPrice)}
+                  onChange={(e) => setFormCostPrice(parseCOPInput(e.target.value))}
+                  placeholder="Ej. $ 50.000"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1">Precio de Venta ($):</label>
+                <label className="block font-semibold text-zinc-300 mb-1">Precio de Venta (COP):</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formSalePrice}
-                  onChange={(e) => setFormSalePrice(Number(e.target.value))}
+                  value={formatCOPInput(formSalePrice)}
+                  onChange={(e) => setFormSalePrice(parseCOPInput(e.target.value))}
+                  placeholder="Ej. $ 90.000"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 font-bold font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -549,10 +606,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <div>
                 <label className="block font-semibold text-zinc-300 mb-1">Stock Inicial:</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formCurrentStock}
-                  onChange={(e) => setFormCurrentStock(Number(e.target.value))}
+                  value={formCurrentStock > 0 ? String(formCurrentStock) : ''}
+                  onChange={(e) => setFormCurrentStock(parseCOPInput(e.target.value))}
+                  placeholder="Ej. 12"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -560,12 +619,59 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <div>
                 <label className="block font-semibold text-zinc-300 mb-1">Stock Mínimo (Alerta):</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formMinStock}
-                  onChange={(e) => setFormMinStock(Number(e.target.value))}
+                  value={formMinStock > 0 ? String(formMinStock) : ''}
+                  onChange={(e) => setFormMinStock(parseCOPInput(e.target.value))}
+                  placeholder="Ej. 4"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-amber-500"
                 />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block font-semibold text-zinc-300 mb-1.5">
+                  Imagen del Producto / Trago (Subir foto o URL):
+                </label>
+                <div className="flex items-center gap-3">
+                  {formImage ? (
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-amber-500/40 bg-zinc-950 shrink-0 p-1">
+                      <img src={formImage} alt="Preview" className="w-full h-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => setFormImage('')}
+                        className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/80 text-rose-400 hover:text-rose-300"
+                        title="Quitar imagen"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl border border-dashed border-zinc-700 bg-zinc-950 flex items-center justify-center text-zinc-500 shrink-0">
+                      <ImagePlus className="w-5 h-5" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-semibold text-[11px] cursor-pointer transition-colors">
+                      <ImagePlus className="w-3.5 h-3.5" />
+                      <span>Seleccionar imagen desde tu equipo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      value={formImage.startsWith('data:') ? '' : formImage}
+                      onChange={(e) => setFormImage(e.target.value)}
+                      placeholder="O pega el enlace (URL) de la imagen..."
+                      className="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 text-[11px] focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -590,10 +696,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
       {/* MODAL 2: EDIT PRODUCT */}
       {editProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4">
           <form
             onSubmit={handleSaveEdit}
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4"
           >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <h3 className="text-base font-bold text-zinc-100">Editar Producto: {editProduct.name}</h3>
@@ -606,8 +712,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="sm:col-span-2">
                 <label className="block font-semibold text-zinc-300 mb-1">Nombre Comercial:</label>
                 <input
                   type="text"
@@ -647,23 +753,27 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1">Costo Compra ($):</label>
+                <label className="block font-semibold text-zinc-300 mb-1">Costo Compra (COP):</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formCostPrice}
-                  onChange={(e) => setFormCostPrice(Number(e.target.value))}
+                  value={formatCOPInput(formCostPrice)}
+                  onChange={(e) => setFormCostPrice(parseCOPInput(e.target.value))}
+                  placeholder="Ej. $ 50.000"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1">Precio Venta ($):</label>
+                <label className="block font-semibold text-zinc-300 mb-1">Precio Venta (COP):</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formSalePrice}
-                  onChange={(e) => setFormSalePrice(Number(e.target.value))}
+                  value={formatCOPInput(formSalePrice)}
+                  onChange={(e) => setFormSalePrice(parseCOPInput(e.target.value))}
+                  placeholder="Ej. $ 90.000"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 font-bold font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -671,10 +781,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <div>
                 <label className="block font-semibold text-zinc-300 mb-1">Stock Actual:</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formCurrentStock}
-                  onChange={(e) => setFormCurrentStock(Number(e.target.value))}
+                  value={formCurrentStock > 0 ? String(formCurrentStock) : ''}
+                  onChange={(e) => setFormCurrentStock(parseCOPInput(e.target.value))}
+                  placeholder="Ej. 12"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -682,12 +794,59 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <div>
                 <label className="block font-semibold text-zinc-300 mb-1">Stock Mínimo:</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={formMinStock}
-                  onChange={(e) => setFormMinStock(Number(e.target.value))}
+                  value={formMinStock > 0 ? String(formMinStock) : ''}
+                  onChange={(e) => setFormMinStock(parseCOPInput(e.target.value))}
+                  placeholder="Ej. 4"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-amber-500"
                 />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block font-semibold text-zinc-300 mb-1.5">
+                  Imagen del Producto / Trago (Subir foto o URL):
+                </label>
+                <div className="flex items-center gap-3">
+                  {formImage ? (
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-amber-500/40 bg-zinc-950 shrink-0 p-1">
+                      <img src={formImage} alt="Preview" className="w-full h-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => setFormImage('')}
+                        className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/80 text-rose-400 hover:text-rose-300"
+                        title="Quitar imagen"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl border border-dashed border-zinc-700 bg-zinc-950 flex items-center justify-center text-zinc-500 shrink-0">
+                      <ImagePlus className="w-5 h-5" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-semibold text-[11px] cursor-pointer transition-colors">
+                      <ImagePlus className="w-3.5 h-3.5" />
+                      <span>Cambiar imagen desde tu equipo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      value={formImage.startsWith('data:') ? '' : formImage}
+                      onChange={(e) => setFormImage(e.target.value)}
+                      placeholder="O pega el enlace (URL) de la imagen..."
+                      className="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 text-[11px] focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
