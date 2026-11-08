@@ -549,10 +549,24 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
 function createEmptyTeamDrafts(count: number, playersPerTeam: number): ChampionshipTeam[] {
   return Array.from({ length: count }, (_, idx) => ({
     id: `draft-team-${Date.now()}-${idx}`,
-    name: `Equipo ${idx + 1}`,
-    players: Array.from({ length: playersPerTeam }, (__, pIdx) => `Jugador ${pIdx + 1}`),
+    name: '',
+    players: Array.from({ length: playersPerTeam }, () => ''),
     paidEntry: true,
   }));
+}
+
+function formatCopCurrencyInput(raw: string | number): string {
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return '';
+  const num = parseInt(digits, 10);
+  if (isNaN(num)) return '';
+  return `$ ${num.toLocaleString('es-CO')}`;
+}
+
+function parseCopCurrencyInput(formatted: string): number {
+  const digits = String(formatted).replace(/\D/g, '');
+  if (!digits) return 0;
+  return parseInt(digits, 10) || 0;
 }
 
 export const ChampionshipsView: React.FC = () => {
@@ -591,12 +605,28 @@ export const ChampionshipsView: React.FC = () => {
   const [newChampMode, setNewChampMode] = useState<ChampionshipMode>('TEJO_PUNTOS');
   const [newTeamFormat, setNewTeamFormat] = useState<TeamFormatType>('PAREJAS');
   const [newPlayersPerTeam, setNewPlayersPerTeam] = useState<number>(2);
-  const [newChampTarget, setNewChampTarget] = useState<number>(27);
-  const [newChampEntryFee, setNewChampEntryFee] = useState<number>(40000);
-  const [newChampPrizePool, setNewChampPrizePool] = useState<number>(200000);
+  const [newPlayersPerTeamInput, setNewPlayersPerTeamInput] = useState<string>('2');
+  const [newChampTargetInput, setNewChampTargetInput] = useState<string>('27');
+  const [newChampEntryFeeInput, setNewChampEntryFeeInput] = useState<string>(
+    formatCopCurrencyInput(40000)
+  );
+  const [newChampPrizePoolInput, setNewChampPrizePoolInput] = useState<string>(
+    formatCopCurrencyInput(200000)
+  );
   const [draftTeams, setDraftTeams] = useState<ChampionshipTeam[]>(() =>
     createEmptyTeamDrafts(4, 2)
   );
+
+  // Clean any stale default 'Jugador X' or 'Equipo X' strings if preserved by HMR
+  useEffect(() => {
+    setDraftTeams((prev) =>
+      prev.map((t) => ({
+        ...t,
+        name: /^Equipo \d+$/i.test(t.name.trim()) ? '' : t.name,
+        players: t.players.map((p) => (/^Jugador \d+$/i.test(p.trim()) ? '' : p)),
+      }))
+    );
+  }, []);
 
   // Quick Add New Team to Active Championship inline state
   const [showInlineAddTeam, setShowInlineAddTeam] = useState(false);
@@ -643,6 +673,30 @@ export const ChampionshipsView: React.FC = () => {
   }, [activeMatch?.id, activeMatch?.teamA, activeMatch?.teamB]);
 
   // Handle changing team format in Create Modal (Individual 1, Parejas 2, Tríos 3, Cuartetos 4, Libre N)
+  const applyPlayersCountToDraftTeams = (targetCount: number) => {
+    const safeCount = Math.max(1, Math.min(20, targetCount));
+    setNewPlayersPerTeam(safeCount);
+    setDraftTeams((prev) =>
+      prev.map((team) => {
+        const currentPlayers = team.players.map((p) =>
+          /^Jugador \d+$/i.test(p.trim()) ? '' : p
+        );
+        if (currentPlayers.length < safeCount) {
+          while (currentPlayers.length < safeCount) {
+            currentPlayers.push('');
+          }
+        } else if (currentPlayers.length > safeCount) {
+          currentPlayers.length = safeCount;
+        }
+        return {
+          ...team,
+          name: /^Equipo \d+$/i.test(team.name.trim()) ? '' : team.name,
+          players: currentPlayers,
+        };
+      })
+    );
+  };
+
   const handleSelectTeamFormat = (format: TeamFormatType, customCount?: number) => {
     setNewTeamFormat(format);
     const targetCount =
@@ -654,22 +708,21 @@ export const ChampionshipsView: React.FC = () => {
         ? 3
         : format === 'CUARTETOS'
         ? 4
-        : Math.max(1, customCount || newPlayersPerTeam || 2);
+        : Math.max(1, customCount ?? (newPlayersPerTeam || 2));
 
-    setNewPlayersPerTeam(targetCount);
-    setDraftTeams((prev) =>
-      prev.map((team) => {
-        const currentPlayers = [...team.players];
-        if (currentPlayers.length < targetCount) {
-          while (currentPlayers.length < targetCount) {
-            currentPlayers.push(`Jugador ${currentPlayers.length + 1}`);
-          }
-        } else if (currentPlayers.length > targetCount) {
-          currentPlayers.length = targetCount;
-        }
-        return { ...team, players: currentPlayers };
-      })
-    );
+    setNewPlayersPerTeamInput(String(targetCount));
+    applyPlayersCountToDraftTeams(targetCount);
+  };
+
+  const handleCustomPlayersInputChange = (rawVal: string) => {
+    const digitsOnly = rawVal.replace(/\D/g, '');
+    setNewPlayersPerTeamInput(digitsOnly);
+    if (digitsOnly !== '') {
+      const parsed = parseInt(digitsOnly, 10);
+      if (!isNaN(parsed) && parsed >= 1) {
+        applyPlayersCountToDraftTeams(Math.min(20, parsed));
+      }
+    }
   };
 
   const handleAddDraftTeam = () => {
@@ -677,11 +730,8 @@ export const ChampionshipsView: React.FC = () => {
       ...prev,
       {
         id: `draft-team-${Date.now()}-${prev.length + 1}`,
-        name: `Equipo ${prev.length + 1}`,
-        players: Array.from(
-          { length: newPlayersPerTeam },
-          (_, idx) => `Jugador ${idx + 1}`
-        ),
+        name: '',
+        players: Array.from({ length: newPlayersPerTeam }, () => ''),
         paidEntry: true,
       },
     ]);
@@ -716,9 +766,7 @@ export const ChampionshipsView: React.FC = () => {
   const handleAddPlayerToDraftTeam = (teamId: string) => {
     setDraftTeams((prev) =>
       prev.map((t) =>
-        t.id === teamId
-          ? { ...t, players: [...t.players, `Jugador ${t.players.length + 1}`] }
-          : t
+        t.id === teamId ? { ...t, players: [...t.players, ''] } : t
       )
     );
   };
@@ -1078,15 +1126,23 @@ export const ChampionshipsView: React.FC = () => {
     const teamNames = sanitizedTeamDetails.map((t) => t.name);
     const createdMatches = buildInitialMatches(teamNames);
 
+    const parsedTarget = Math.max(
+      1,
+      parseInt(String(newChampTargetInput).replace(/\D/g, ''), 10) ||
+        (newChampMode === 'TEJO_BALAZOS' ? 5 : newChampMode === 'BOLIRANA' ? 3000 : 27)
+    );
+    const parsedEntryFee = parseCopCurrencyInput(newChampEntryFeeInput);
+    const parsedPrizePool = parseCopCurrencyInput(newChampPrizePoolInput);
+
     const created: Championship = {
       id: `champ-${Date.now()}`,
       name: cleanName,
       mode: newChampMode,
       teamFormat: newTeamFormat,
       playersPerTeam: newPlayersPerTeam,
-      targetScore: Math.max(1, Number(newChampTarget) || 27),
-      entryFee: Math.max(0, Number(newChampEntryFee) || 0),
-      prizePool: Math.max(0, Number(newChampPrizePool) || 0),
+      targetScore: parsedTarget,
+      entryFee: parsedEntryFee,
+      prizePool: parsedPrizePool,
       teams: teamNames,
       teamDetails: sanitizedTeamDetails,
       matches: createdMatches,
@@ -1099,6 +1155,7 @@ export const ChampionshipsView: React.FC = () => {
     setSelectedMatchId(createdMatches[0].id);
     setShowCreateModal(false);
     setNewChampName('');
+    setDraftTeams(createEmptyTeamDrafts(4, newPlayersPerTeam));
   };
 
   // Add a new team to the currently active championship
@@ -2133,7 +2190,7 @@ export const ChampionshipsView: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setNewChampMode('TEJO_PUNTOS');
-                        setNewChampTarget(27);
+                        setNewChampTargetInput('27');
                       }}
                       className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                         newChampMode === 'TEJO_PUNTOS'
@@ -2151,7 +2208,7 @@ export const ChampionshipsView: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setNewChampMode('TEJO_BALAZOS');
-                        setNewChampTarget(5);
+                        setNewChampTargetInput('5');
                       }}
                       className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                         newChampMode === 'TEJO_BALAZOS'
@@ -2169,7 +2226,7 @@ export const ChampionshipsView: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setNewChampMode('BOLIRANA');
-                        setNewChampTarget(3000);
+                        setNewChampTargetInput('3000');
                       }}
                       className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                         newChampMode === 'BOLIRANA'
@@ -2222,20 +2279,46 @@ export const ChampionshipsView: React.FC = () => {
                 </div>
 
                 {newTeamFormat === 'LIBRE' && (
-                  <div className="flex items-center gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
                     <span className="text-zinc-300 font-semibold">
                       Jugadores por equipo:
                     </span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={12}
-                      value={newPlayersPerTeam}
-                      onChange={(e) =>
-                        handleSelectTeamFormat('LIBRE', parseInt(e.target.value, 10) || 1)
-                      }
-                      className="w-20 px-3 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-amber-300 font-mono font-bold text-center"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = Math.max(1, newPlayersPerTeam - 1);
+                          setNewPlayersPerTeamInput(String(next));
+                          applyPlayersCountToDraftTeams(next);
+                        }}
+                        className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={newPlayersPerTeamInput}
+                        onChange={(e) => handleCustomPlayersInputChange(e.target.value)}
+                        onBlur={() => {
+                          if (!newPlayersPerTeamInput.trim()) {
+                            setNewPlayersPerTeamInput(String(newPlayersPerTeam));
+                          }
+                        }}
+                        className="w-20 px-3 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-amber-300 font-mono font-bold text-center focus:outline-none focus:border-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = Math.min(20, newPlayersPerTeam + 1);
+                          setNewPlayersPerTeamInput(String(next));
+                          applyPlayersCountToDraftTeams(next);
+                        }}
+                        className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2247,38 +2330,57 @@ export const ChampionshipsView: React.FC = () => {
                     4. Meta para Ganar ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
                   </label>
                   <input
-                    type="number"
-                    min={1}
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={newChampTarget}
-                    onChange={(e) => setNewChampTarget(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold focus:outline-none"
+                    value={newChampTargetInput}
+                    onChange={(e) =>
+                      setNewChampTargetInput(e.target.value.replace(/\D/g, ''))
+                    }
+                    onBlur={() => {
+                      if (!newChampTargetInput.trim()) {
+                        setNewChampTargetInput(
+                          newChampMode === 'TEJO_BALAZOS'
+                            ? '5'
+                            : newChampMode === 'BOLIRANA'
+                            ? '3000'
+                            : '27'
+                        );
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div>
                   <label className="block font-bold text-zinc-300 mb-1">
-                    Inscripción por Equipo ($)
+                    Inscripción por Equipo ($ COP)
                   </label>
                   <input
-                    type="number"
-                    min={0}
-                    value={newChampEntryFee}
-                    onChange={(e) => setNewChampEntryFee(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 font-mono focus:outline-none"
+                    type="text"
+                    inputMode="numeric"
+                    value={newChampEntryFeeInput}
+                    onChange={(e) =>
+                      setNewChampEntryFeeInput(formatCopCurrencyInput(e.target.value))
+                    }
+                    placeholder="$ 0"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 font-mono font-bold focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
                 <div>
                   <label className="block font-bold text-zinc-300 mb-1">
-                    Premio al Campeón ($)
+                    Premio al Campeón ($ COP)
                   </label>
                   <input
-                    type="number"
-                    min={0}
-                    value={newChampPrizePool}
-                    onChange={(e) => setNewChampPrizePool(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-emerald-400 font-mono font-bold focus:outline-none"
+                    type="text"
+                    inputMode="numeric"
+                    value={newChampPrizePoolInput}
+                    onChange={(e) =>
+                      setNewChampPrizePoolInput(formatCopCurrencyInput(e.target.value))
+                    }
+                    placeholder="$ 0"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -2354,14 +2456,12 @@ export const ChampionshipsView: React.FC = () => {
 
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
-                          Nombre del Equipo / Pareja / Trío *
+                          Nombre del Equipo #{tIdx + 1}
                         </label>
                         <input
                           type="text"
-                          required
                           value={team.name}
                           onChange={(e) => handleUpdateDraftTeamName(team.id, e.target.value)}
-                          placeholder={`Ej. Equipo ${tIdx + 1}`}
                           className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -2383,14 +2483,15 @@ export const ChampionshipsView: React.FC = () => {
 
                         {team.players.map((playerName, pIdx) => (
                           <div key={pIdx} className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono font-bold text-zinc-400 w-6 shrink-0">
+                              #{pIdx + 1}
+                            </span>
                             <input
                               type="text"
-                              required
                               value={playerName}
                               onChange={(e) =>
                                 handleUpdateDraftPlayerName(team.id, pIdx, e.target.value)
                               }
-                              placeholder={`Nombre del Jugador ${pIdx + 1}`}
                               className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800/90 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
                             />
                             {team.players.length > 1 && (
