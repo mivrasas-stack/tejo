@@ -5,27 +5,37 @@ import {
   Flame,
   Plus,
   Trash2,
-  Play,
   CheckCircle2,
   RotateCcw,
   Award,
   Users,
-  Sparkles,
   BookOpen,
-  ChevronRight,
-  CircleDollarSign,
   Sliders,
   X,
   Zap,
+  UserPlus,
+  UserCheck,
+  Shuffle,
 } from 'lucide-react';
 import { formatCurrency } from '../services/storage';
 
 export type ChampionshipMode = 'TEJO_PUNTOS' | 'TEJO_BALAZOS' | 'BOLIRANA';
 
+export type TeamFormatType = 'INDIVIDUAL' | 'PAREJAS' | 'TRIOS' | 'CUARTETOS' | 'LIBRE';
+
+export interface ChampionshipTeam {
+  id: string;
+  name: string;
+  players: string[]; // Nombres individuales de cada jugador (ej. ['Carlos Pérez', 'Andrés Gómez'])
+  paidEntry?: boolean;
+  contactPhone?: string;
+}
+
 export interface ChampionshipScoreEvent {
   id: string;
   team: 'A' | 'B';
   teamName: string;
+  playerName?: string;
   label: string;
   points: number;
   timestamp: string;
@@ -53,26 +63,112 @@ export interface Championship {
   id: string;
   name: string;
   mode: ChampionshipMode;
-  targetScore: number; // e.g. 27 pts (Tejo), 5 balazos (A Balazos), 3000 pts (Bolirana), or any custom number
+  teamFormat: TeamFormatType;
+  playersPerTeam: number;
+  targetScore: number;
   entryFee: number;
   prizePool: number;
   teams: string[];
+  teamDetails?: ChampionshipTeam[];
   matches: ChampionshipMatch[];
   status: 'ACTIVO' | 'FINALIZADO';
   champion?: string;
   createdAt: string;
 }
 
-const STORAGE_KEY_CHAMPIONSHIPS = 'aura_pos_championships_v1';
+const STORAGE_KEY_CHAMPIONSHIPS = 'aura_pos_championships_v2';
 
-function buildInitialMatches(teams: string[]): ChampionshipMatch[] {
-  const clean = teams.filter(Boolean);
+export function getFormatLabel(format: TeamFormatType, count?: number): string {
+  switch (format) {
+    case 'INDIVIDUAL':
+      return 'Individual (1 vs 1)';
+    case 'PAREJAS':
+      return 'Parejas / Duplas (2 vs 2)';
+    case 'TRIOS':
+      return 'Tríos / Ternas (3 vs 3)';
+    case 'CUARTETOS':
+      return 'Equipos de 4 (4 vs 4)';
+    case 'LIBRE':
+      return `Personalizado (${count || 2} por equipo)`;
+  }
+}
+
+function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
+  const clean = teamNames.filter(Boolean);
   const matches: ChampionshipMatch[] = [];
+  const ts = Date.now();
 
-  if (clean.length >= 4) {
-    // Semifinales (primeros 4 equipos) + Gran Final
+  if (clean.length >= 8) {
+    // Cuartos de Final (4 partidos) + Semifinales (2) + Gran Final (1)
+    for (let i = 0; i < 4; i++) {
+      matches.push({
+        id: `m-${ts}-q${i + 1}`,
+        roundName: `Cuartos de Final ${i + 1}`,
+        matchNumber: i + 1,
+        teamA: clean[i * 2] || `Equipo ${i * 2 + 1}`,
+        teamB: clean[i * 2 + 1] || `Equipo ${i * 2 + 2}`,
+        scoreA: 0,
+        scoreB: 0,
+        ranasOrBalazosA: 0,
+        ranasOrBalazosB: 0,
+        mononasA: 0,
+        mononasB: 0,
+        status: i === 0 ? 'EN_JUEGO' : 'PENDIENTE',
+        canchaAsignada: `Cancha #${(i % 2) + 1}`,
+        events: [],
+      });
+    }
     matches.push({
-      id: `m-${Date.now()}-1`,
+      id: `m-${ts}-s1`,
+      roundName: 'Semifinal 1',
+      matchNumber: 5,
+      teamA: 'Ganador Cuartos 1',
+      teamB: 'Ganador Cuartos 2',
+      scoreA: 0,
+      scoreB: 0,
+      ranasOrBalazosA: 0,
+      ranasOrBalazosB: 0,
+      mononasA: 0,
+      mononasB: 0,
+      status: 'PENDIENTE',
+      canchaAsignada: 'Cancha Principal #1',
+      events: [],
+    });
+    matches.push({
+      id: `m-${ts}-s2`,
+      roundName: 'Semifinal 2',
+      matchNumber: 6,
+      teamA: 'Ganador Cuartos 3',
+      teamB: 'Ganador Cuartos 4',
+      scoreA: 0,
+      scoreB: 0,
+      ranasOrBalazosA: 0,
+      ranasOrBalazosB: 0,
+      mononasA: 0,
+      mononasB: 0,
+      status: 'PENDIENTE',
+      canchaAsignada: 'Cancha Principal #2',
+      events: [],
+    });
+    matches.push({
+      id: `m-${ts}-f`,
+      roundName: 'Gran Final',
+      matchNumber: 7,
+      teamA: 'Ganador Semifinal 1',
+      teamB: 'Ganador Semifinal 2',
+      scoreA: 0,
+      scoreB: 0,
+      ranasOrBalazosA: 0,
+      ranasOrBalazosB: 0,
+      mononasA: 0,
+      mononasB: 0,
+      status: 'PENDIENTE',
+      canchaAsignada: 'Cancha VIP / Final',
+      events: [],
+    });
+  } else if (clean.length >= 4) {
+    matches.push({
+      id: `m-${ts}-1`,
       roundName: 'Semifinal 1',
       matchNumber: 1,
       teamA: clean[0] || 'Equipo 1',
@@ -88,7 +184,7 @@ function buildInitialMatches(teams: string[]): ChampionshipMatch[] {
       events: [],
     });
     matches.push({
-      id: `m-${Date.now()}-2`,
+      id: `m-${ts}-2`,
       roundName: 'Semifinal 2',
       matchNumber: 2,
       teamA: clean[2] || 'Equipo 3',
@@ -104,7 +200,7 @@ function buildInitialMatches(teams: string[]): ChampionshipMatch[] {
       events: [],
     });
     matches.push({
-      id: `m-${Date.now()}-3`,
+      id: `m-${ts}-3`,
       roundName: 'Gran Final',
       matchNumber: 3,
       teamA: 'Ganador Semifinal 1',
@@ -121,7 +217,7 @@ function buildInitialMatches(teams: string[]): ChampionshipMatch[] {
     });
   } else {
     matches.push({
-      id: `m-${Date.now()}-1`,
+      id: `m-${ts}-1`,
       roundName: 'Gran Final Directa',
       matchNumber: 1,
       teamA: clean[0] || 'Equipo A',
@@ -146,10 +242,38 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
     id: 'champ-tejo-puntos',
     name: 'Gran Torneo Nocturno de Tejo AURA',
     mode: 'TEJO_PUNTOS',
+    teamFormat: 'TRIOS',
+    playersPerTeam: 3,
     targetScore: 27,
-    entryFee: 50000,
-    prizePool: 300000,
+    entryFee: 60000,
+    prizePool: 350000,
     teams: ['Los Caciques', 'Mecha Brava', 'Bocín de Oro', 'Combo del Sur'],
+    teamDetails: [
+      {
+        id: 'td-1',
+        name: 'Los Caciques',
+        players: ['Jairo Quintero', 'Camilo Pardo', 'Hernán Ríos'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-2',
+        name: 'Mecha Brava',
+        players: ['Mauricio Vargas', 'Diego Mora', 'Fabián Soto'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-3',
+        name: 'Bocín de Oro',
+        players: ['Óscar Gómez', 'Julián Peña', 'Édgar Cruz'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-4',
+        name: 'Combo del Sur',
+        players: ['Nelson Rojas', 'Wilmer Díaz', 'Héctor Castro'],
+        paidEntry: false,
+      },
+    ],
     status: 'ACTIVO',
     createdAt: 'Hoy · 08:00 PM',
     matches: [
@@ -172,6 +296,7 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
             id: 'ev-1',
             team: 'A',
             teamName: 'Los Caciques',
+            playerName: 'Jairo Quintero',
             label: '🔥 Moñona (Embocinada + Mecha)',
             points: 9,
             timestamp: '08:15 PM',
@@ -180,6 +305,7 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
             id: 'ev-2',
             team: 'B',
             teamName: 'Mecha Brava',
+            playerName: 'Mauricio Vargas',
             label: '🎯 Embocinada en el Bocín',
             points: 6,
             timestamp: '08:18 PM',
@@ -222,12 +348,40 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
   },
   {
     id: 'champ-tejo-balazos',
-    name: 'Relámpago de Tejo "A Balazos" (Mecha Limpia)',
+    name: 'Relámpago de Tejo "A Balazos" (Parejas)',
     mode: 'TEJO_BALAZOS',
+    teamFormat: 'PAREJAS',
+    playersPerTeam: 2,
     targetScore: 5,
     entryFee: 30000,
     prizePool: 150000,
     teams: ['Pólvora Pura', 'Los Francotiradores', 'Trueno del Norte', 'Reyes del Bocín'],
+    teamDetails: [
+      {
+        id: 'td-b1',
+        name: 'Pólvora Pura',
+        players: ['Andrés Morales', 'Sebastián Gil'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-b2',
+        name: 'Los Francotiradores',
+        players: ['Felipe Mejía', 'Cristian León'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-b3',
+        name: 'Trueno del Norte',
+        players: ['Gustavo Arias', 'Ricardo Ruiz'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-b4',
+        name: 'Reyes del Bocín',
+        players: ['Álvaro Ochoa', 'Darío Vélez'],
+        paidEntry: true,
+      },
+    ],
     status: 'ACTIVO',
     createdAt: 'Hoy · 09:00 PM',
     matches: [
@@ -250,6 +404,7 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
             id: 'ev-b1',
             team: 'A',
             teamName: 'Pólvora Pura',
+            playerName: 'Andrés Morales',
             label: '💥 ¡Balazo! (Mecha Explotada)',
             points: 1,
             timestamp: '09:05 PM',
@@ -294,10 +449,38 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
     id: 'champ-bolirana',
     name: 'Copa Bolirana Electrónica · Rana de Oro',
     mode: 'BOLIRANA',
+    teamFormat: 'PAREJAS',
+    playersPerTeam: 2,
     targetScore: 3000,
     entryFee: 40000,
     prizePool: 200000,
     teams: ['Rana Maestra', 'Tiro Fijo VIP', 'Los Compadres', 'Combo Bolirana'],
+    teamDetails: [
+      {
+        id: 'td-r1',
+        name: 'Rana Maestra',
+        players: ['Fernando Gómez', 'Luis Eduardo'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-r2',
+        name: 'Tiro Fijo VIP',
+        players: ['Mateo Barrientos', 'Juan Pablo'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-r3',
+        name: 'Los Compadres',
+        players: ['Ramiro Cano', 'Jorge Iván'],
+        paidEntry: true,
+      },
+      {
+        id: 'td-r4',
+        name: 'Combo Bolirana',
+        players: ['Santiago Villa', 'Daniel Ospina'],
+        paidEntry: true,
+      },
+    ],
     status: 'ACTIVO',
     createdAt: 'Hoy · 09:30 PM',
     matches: [
@@ -320,6 +503,7 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
             id: 'ev-r1',
             team: 'A',
             teamName: 'Rana Maestra',
+            playerName: 'Fernando Gómez',
             label: '🐸 ¡Rana Principal! (+500)',
             points: 500,
             timestamp: '09:35 PM',
@@ -362,6 +546,15 @@ const DEFAULT_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+function createEmptyTeamDrafts(count: number, playersPerTeam: number): ChampionshipTeam[] {
+  return Array.from({ length: count }, (_, idx) => ({
+    id: `draft-team-${Date.now()}-${idx}`,
+    name: `Equipo ${idx + 1}`,
+    players: Array.from({ length: playersPerTeam }, (__, pIdx) => `Jugador ${pIdx + 1}`),
+    paidEntry: true,
+  }));
+}
+
 export const ChampionshipsView: React.FC = () => {
   const [championships, setChampionships] = useState<Championship[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_CHAMPIONSHIPS);
@@ -384,21 +577,31 @@ export const ChampionshipsView: React.FC = () => {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // Active Shooter / Player selector per side in the live scoreboard
+  const [selectedPlayerA, setSelectedPlayerA] = useState<string>('');
+  const [selectedPlayerB, setSelectedPlayerB] = useState<string>('');
+
   // Custom Score / Target Editor inline
   const [editingTargetScore, setEditingTargetScore] = useState<string>('');
   const [customPointsInputA, setCustomPointsInputA] = useState<string>('');
   const [customPointsInputB, setCustomPointsInputB] = useState<string>('');
 
-  // Create Championship Form State
+  // Create Championship Form State (100% Customizable Teams & Players)
   const [newChampName, setNewChampName] = useState('');
   const [newChampMode, setNewChampMode] = useState<ChampionshipMode>('TEJO_PUNTOS');
+  const [newTeamFormat, setNewTeamFormat] = useState<TeamFormatType>('PAREJAS');
+  const [newPlayersPerTeam, setNewPlayersPerTeam] = useState<number>(2);
   const [newChampTarget, setNewChampTarget] = useState<number>(27);
   const [newChampEntryFee, setNewChampEntryFee] = useState<number>(40000);
   const [newChampPrizePool, setNewChampPrizePool] = useState<number>(200000);
-  const [newTeam1, setNewTeam1] = useState('Equipo 1');
-  const [newTeam2, setNewTeam2] = useState('Equipo 2');
-  const [newTeam3, setNewTeam3] = useState('Equipo 3');
-  const [newTeam4, setNewTeam4] = useState('Equipo 4');
+  const [draftTeams, setDraftTeams] = useState<ChampionshipTeam[]>(() =>
+    createEmptyTeamDrafts(4, 2)
+  );
+
+  // Quick Add New Team to Active Championship inline state
+  const [showInlineAddTeam, setShowInlineAddTeam] = useState(false);
+  const [inlineNewTeamName, setInlineNewTeamName] = useState('');
+  const [inlineNewTeamPlayers, setInlineNewTeamPlayers] = useState<string[]>(['', '']);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_CHAMPIONSHIPS, JSON.stringify(championships));
@@ -413,7 +616,10 @@ export const ChampionshipsView: React.FC = () => {
       const inProgress =
         activeChamp.matches.find((m) => m.status === 'EN_JUEGO') ||
         activeChamp.matches[0];
-      if (inProgress && (!selectedMatchId || !activeChamp.matches.some((m) => m.id === selectedMatchId))) {
+      if (
+        inProgress &&
+        (!selectedMatchId || !activeChamp.matches.some((m) => m.id === selectedMatchId))
+      ) {
         setSelectedMatchId(inProgress.id);
       }
     }
@@ -422,6 +628,129 @@ export const ChampionshipsView: React.FC = () => {
   const activeMatch =
     activeChamp?.matches.find((m) => m.id === selectedMatchId) ||
     activeChamp?.matches[0];
+
+  // Sync active player selection when match changes
+  const teamADetails = activeChamp?.teamDetails?.find(
+    (td) => td.name === activeMatch?.teamA
+  );
+  const teamBDetails = activeChamp?.teamDetails?.find(
+    (td) => td.name === activeMatch?.teamB
+  );
+
+  useEffect(() => {
+    setSelectedPlayerA(teamADetails?.players?.[0] || '');
+    setSelectedPlayerB(teamBDetails?.players?.[0] || '');
+  }, [activeMatch?.id, activeMatch?.teamA, activeMatch?.teamB]);
+
+  // Handle changing team format in Create Modal (Individual 1, Parejas 2, Tríos 3, Cuartetos 4, Libre N)
+  const handleSelectTeamFormat = (format: TeamFormatType, customCount?: number) => {
+    setNewTeamFormat(format);
+    const targetCount =
+      format === 'INDIVIDUAL'
+        ? 1
+        : format === 'PAREJAS'
+        ? 2
+        : format === 'TRIOS'
+        ? 3
+        : format === 'CUARTETOS'
+        ? 4
+        : Math.max(1, customCount || newPlayersPerTeam || 2);
+
+    setNewPlayersPerTeam(targetCount);
+    setDraftTeams((prev) =>
+      prev.map((team) => {
+        const currentPlayers = [...team.players];
+        if (currentPlayers.length < targetCount) {
+          while (currentPlayers.length < targetCount) {
+            currentPlayers.push(`Jugador ${currentPlayers.length + 1}`);
+          }
+        } else if (currentPlayers.length > targetCount) {
+          currentPlayers.length = targetCount;
+        }
+        return { ...team, players: currentPlayers };
+      })
+    );
+  };
+
+  const handleAddDraftTeam = () => {
+    setDraftTeams((prev) => [
+      ...prev,
+      {
+        id: `draft-team-${Date.now()}-${prev.length + 1}`,
+        name: `Equipo ${prev.length + 1}`,
+        players: Array.from(
+          { length: newPlayersPerTeam },
+          (_, idx) => `Jugador ${idx + 1}`
+        ),
+        paidEntry: true,
+      },
+    ]);
+  };
+
+  const handleRemoveDraftTeam = (teamId: string) => {
+    if (draftTeams.length <= 2) return;
+    setDraftTeams((prev) => prev.filter((t) => t.id !== teamId));
+  };
+
+  const handleUpdateDraftTeamName = (teamId: string, newName: string) => {
+    setDraftTeams((prev) =>
+      prev.map((t) => (t.id === teamId ? { ...t, name: newName } : t))
+    );
+  };
+
+  const handleUpdateDraftPlayerName = (
+    teamId: string,
+    playerIdx: number,
+    playerName: string
+  ) => {
+    setDraftTeams((prev) =>
+      prev.map((t) => {
+        if (t.id !== teamId) return t;
+        const nextPlayers = [...t.players];
+        nextPlayers[playerIdx] = playerName;
+        return { ...t, players: nextPlayers };
+      })
+    );
+  };
+
+  const handleAddPlayerToDraftTeam = (teamId: string) => {
+    setDraftTeams((prev) =>
+      prev.map((t) =>
+        t.id === teamId
+          ? { ...t, players: [...t.players, `Jugador ${t.players.length + 1}`] }
+          : t
+      )
+    );
+  };
+
+  const handleRemovePlayerFromDraftTeam = (teamId: string, playerIdx: number) => {
+    setDraftTeams((prev) =>
+      prev.map((t) => {
+        if (t.id !== teamId || t.players.length <= 1) return t;
+        return {
+          ...t,
+          players: t.players.filter((_, i) => i !== playerIdx),
+        };
+      })
+    );
+  };
+
+  const handleToggleDraftTeamPaid = (teamId: string) => {
+    setDraftTeams((prev) =>
+      prev.map((t) => (t.id === teamId ? { ...t, paidEntry: !t.paidEntry } : t))
+    );
+  };
+
+  const handleShuffleDraftTeams = () => {
+    setDraftTeams((prev) => {
+      const copy = [...prev];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    });
+  };
 
   const getModeBadge = (mode: ChampionshipMode) => {
     switch (mode) {
@@ -486,6 +815,8 @@ export const ChampionshipsView: React.FC = () => {
       minute: '2-digit',
     });
 
+    const shooterName = team === 'A' ? selectedPlayerA : selectedPlayerB;
+
     setChampionships((prev) =>
       prev.map((champ) => {
         if (champ.id !== activeChamp.id) return champ;
@@ -514,12 +845,12 @@ export const ChampionshipsView: React.FC = () => {
             id: `ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             team,
             teamName: team === 'A' ? m.teamA : m.teamB,
+            playerName: shooterName || undefined,
             label,
             points,
             timestamp: nowStr,
           };
 
-          // Check if targetScore is reached
           let nextStatus: ChampionshipMatch['status'] = 'EN_JUEGO';
           let winner = m.winner;
 
@@ -545,41 +876,106 @@ export const ChampionshipsView: React.FC = () => {
           };
         });
 
-        // Propagate semifinal winners to Gran Final automatically
-        const semi1 = updatedMatches.find((m) => m.matchNumber === 1);
-        const semi2 = updatedMatches.find((m) => m.matchNumber === 2);
-        const finalMatch = updatedMatches.find((m) => m.matchNumber === 3);
-
+        // Propagate winners in 4-team or 8-team bracket
+        const totalMatches = updatedMatches.length;
         let tournamentChampion = champ.champion;
         let tournamentStatus = champ.status;
 
-        if (finalMatch) {
-          const nextFinalTeamA = semi1?.winner ? semi1.winner : finalMatch.teamA;
-          const nextFinalTeamB = semi2?.winner ? semi2.winner : finalMatch.teamB;
-          const shouldActivateFinal =
-            semi1?.status === 'FINALIZADO' &&
-            semi2?.status === 'FINALIZADO' &&
-            finalMatch.status === 'PENDIENTE';
+        if (totalMatches === 3) {
+          // 4-team bracket (Semis 1 & 2 -> Final 3)
+          const semi1 = updatedMatches.find((m) => m.matchNumber === 1);
+          const semi2 = updatedMatches.find((m) => m.matchNumber === 2);
+          const finalMatch = updatedMatches.find((m) => m.matchNumber === 3);
 
-          updatedMatches = updatedMatches.map((m) =>
-            m.id === finalMatch.id
-              ? {
-                  ...m,
-                  teamA: nextFinalTeamA,
-                  teamB: nextFinalTeamB,
-                  status: shouldActivateFinal ? 'EN_JUEGO' : m.status,
-                }
-              : m
-          );
+          if (finalMatch) {
+            const nextFinalTeamA = semi1?.winner ? semi1.winner : finalMatch.teamA;
+            const nextFinalTeamB = semi2?.winner ? semi2.winner : finalMatch.teamB;
+            const shouldActivateFinal =
+              semi1?.status === 'FINALIZADO' &&
+              semi2?.status === 'FINALIZADO' &&
+              finalMatch.status === 'PENDIENTE';
 
-          const refreshedFinal = updatedMatches.find((m) => m.id === finalMatch.id);
+            updatedMatches = updatedMatches.map((m) =>
+              m.id === finalMatch.id
+                ? {
+                    ...m,
+                    teamA: nextFinalTeamA,
+                    teamB: nextFinalTeamB,
+                    status: shouldActivateFinal ? 'EN_JUEGO' : m.status,
+                  }
+                : m
+            );
+
+            const refreshedFinal = updatedMatches.find((m) => m.id === finalMatch.id);
+            if (refreshedFinal?.status === 'FINALIZADO' && refreshedFinal.winner) {
+              tournamentChampion = refreshedFinal.winner;
+              tournamentStatus = 'FINALIZADO';
+            }
+          }
+        } else if (totalMatches === 7) {
+          // 8-team bracket (Quarters 1..4 -> Semis 5..6 -> Final 7)
+          const q1 = updatedMatches.find((m) => m.matchNumber === 1);
+          const q2 = updatedMatches.find((m) => m.matchNumber === 2);
+          const q3 = updatedMatches.find((m) => m.matchNumber === 3);
+          const q4 = updatedMatches.find((m) => m.matchNumber === 4);
+          const s1 = updatedMatches.find((m) => m.matchNumber === 5);
+          const s2 = updatedMatches.find((m) => m.matchNumber === 6);
+          const fin = updatedMatches.find((m) => m.matchNumber === 7);
+
+          updatedMatches = updatedMatches.map((m) => {
+            if (m.matchNumber === 5) {
+              return {
+                ...m,
+                teamA: q1?.winner || m.teamA,
+                teamB: q2?.winner || m.teamB,
+                status:
+                  q1?.status === 'FINALIZADO' &&
+                  q2?.status === 'FINALIZADO' &&
+                  m.status === 'PENDIENTE'
+                    ? 'EN_JUEGO'
+                    : m.status,
+              };
+            }
+            if (m.matchNumber === 6) {
+              return {
+                ...m,
+                teamA: q3?.winner || m.teamA,
+                teamB: q4?.winner || m.teamB,
+                status:
+                  q3?.status === 'FINALIZADO' &&
+                  q4?.status === 'FINALIZADO' &&
+                  m.status === 'PENDIENTE'
+                    ? 'EN_JUEGO'
+                    : m.status,
+              };
+            }
+            if (m.matchNumber === 7) {
+              return {
+                ...m,
+                teamA: s1?.winner || m.teamA,
+                teamB: s2?.winner || m.teamB,
+                status:
+                  s1?.status === 'FINALIZADO' &&
+                  s2?.status === 'FINALIZADO' &&
+                  m.status === 'PENDIENTE'
+                    ? 'EN_JUEGO'
+                    : m.status,
+              };
+            }
+            return m;
+          });
+
+          const refreshedFinal = updatedMatches.find((m) => m.matchNumber === 7);
           if (refreshedFinal?.status === 'FINALIZADO' && refreshedFinal.winner) {
             tournamentChampion = refreshedFinal.winner;
             tournamentStatus = 'FINALIZADO';
           }
-        } else if (semi1?.status === 'FINALIZADO' && semi1.winner) {
-          tournamentChampion = semi1.winner;
-          tournamentStatus = 'FINALIZADO';
+        } else {
+          const lastMatch = updatedMatches[updatedMatches.length - 1];
+          if (lastMatch?.status === 'FINALIZADO' && lastMatch.winner) {
+            tournamentChampion = lastMatch.winner;
+            tournamentStatus = 'FINALIZADO';
+          }
         }
 
         return {
@@ -659,7 +1055,7 @@ export const ChampionshipsView: React.FC = () => {
     );
   };
 
-  // Create a new championship
+  // Create a new championship with full team & player roster
   const handleCreateChampionship = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName =
@@ -671,19 +1067,28 @@ export const ChampionshipsView: React.FC = () => {
           ? 'Tejo Tradicional'
           : 'Bolirana'
       }`;
-    const teams = [newTeam1, newTeam2, newTeam3, newTeam4]
-      .map((t) => t.trim())
-      .filter(Boolean);
 
-    const createdMatches = buildInitialMatches(teams);
+    const sanitizedTeamDetails: ChampionshipTeam[] = draftTeams.map((t, idx) => ({
+      id: t.id || `team-${Date.now()}-${idx}`,
+      name: t.name.trim() || `Equipo ${idx + 1}`,
+      players: t.players.map((p, pIdx) => p.trim() || `Jugador ${pIdx + 1}`),
+      paidEntry: t.paidEntry ?? true,
+    }));
+
+    const teamNames = sanitizedTeamDetails.map((t) => t.name);
+    const createdMatches = buildInitialMatches(teamNames);
+
     const created: Championship = {
       id: `champ-${Date.now()}`,
       name: cleanName,
       mode: newChampMode,
+      teamFormat: newTeamFormat,
+      playersPerTeam: newPlayersPerTeam,
       targetScore: Math.max(1, Number(newChampTarget) || 27),
       entryFee: Math.max(0, Number(newChampEntryFee) || 0),
       prizePool: Math.max(0, Number(newChampPrizePool) || 0),
-      teams,
+      teams: teamNames,
+      teamDetails: sanitizedTeamDetails,
       matches: createdMatches,
       status: 'ACTIVO',
       createdAt: 'Recién creado',
@@ -694,6 +1099,40 @@ export const ChampionshipsView: React.FC = () => {
     setSelectedMatchId(createdMatches[0].id);
     setShowCreateModal(false);
     setNewChampName('');
+  };
+
+  // Add a new team to the currently active championship
+  const handleInlineAddTeamSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeChamp || !inlineNewTeamName.trim()) return;
+
+    const newTeamObj: ChampionshipTeam = {
+      id: `td-${Date.now()}`,
+      name: inlineNewTeamName.trim(),
+      players: inlineNewTeamPlayers
+        .map((p, idx) => p.trim() || `Jugador ${idx + 1}`)
+        .filter(Boolean),
+      paidEntry: true,
+    };
+
+    setChampionships((prev) =>
+      prev.map((c) => {
+        if (c.id !== activeChamp.id) return c;
+        const nextTeamDetails = [...(c.teamDetails || []), newTeamObj];
+        const nextTeams = nextTeamDetails.map((td) => td.name);
+        return {
+          ...c,
+          teams: nextTeams,
+          teamDetails: nextTeamDetails,
+        };
+      })
+    );
+
+    setInlineNewTeamName('');
+    setInlineNewTeamPlayers(
+      Array.from({ length: activeChamp.playersPerTeam || 2 }, () => '')
+    );
+    setShowInlineAddTeam(false);
   };
 
   const handleDeleteChampionship = (id: string) => {
@@ -731,7 +1170,7 @@ export const ChampionshipsView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/35 text-[10px] font-bold uppercase tracking-wider">
-                  Reglamento Oficial FEDETEJO & Bolirana Colombia
+                  {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
                 </span>
                 <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${badge.color}`}>
                   {badge.label}
@@ -741,7 +1180,7 @@ export const ChampionshipsView: React.FC = () => {
                 Campeonatos de Tejo, A Balazos & Bolirana
               </h2>
               <p className="text-xs text-zinc-300 mt-0.5 max-w-2xl">
-                Gestiona torneos en vivo por puntos tradicionales, relámpagos a balazos (mechas) o bolirana, personalizando en cualquier momento la meta para ganar.
+                Configura torneos individuales, por parejas, tríos o equipos completos con registro detallado de cada jugador, puntaje meta libre y tablero en vivo.
               </p>
             </div>
           </div>
@@ -947,7 +1386,6 @@ export const ChampionshipsView: React.FC = () => {
               <span className="text-xs font-bold text-zinc-400">{badge.unit}</span>
             </div>
 
-            {/* Quick Target Presets depending on active mode */}
             {activeChamp.mode === 'TEJO_PUNTOS' &&
               [15, 21, 27, 35].map((preset) => (
                 <button
@@ -1021,7 +1459,7 @@ export const ChampionshipsView: React.FC = () => {
         </div>
       )}
 
-      {/* MAIN GRID: LEFT LIVE MATCH SCOREBOARD (Col 7) + RIGHT BRACKET & LOG (Col 5) */}
+      {/* MAIN GRID: LEFT LIVE MATCH SCOREBOARD (Col 7) + RIGHT BRACKET, TEAMS & LOG (Col 5) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: LIVE SCOREBOARD & 1-CLICK PLAY BUTTONS */}
         <div className="lg:col-span-7 space-y-4">
@@ -1070,6 +1508,10 @@ export const ChampionshipsView: React.FC = () => {
               {(['A', 'B'] as const).map((side) => {
                 const isA = side === 'A';
                 const teamName = isA ? activeMatch.teamA : activeMatch.teamB;
+                const teamInfo = isA ? teamADetails : teamBDetails;
+                const playersList = teamInfo?.players || [];
+                const activeShooter = isA ? selectedPlayerA : selectedPlayerB;
+                const setActiveShooter = isA ? setSelectedPlayerA : setSelectedPlayerB;
                 const score = isA ? activeMatch.scoreA : activeMatch.scoreB;
                 const progress = isA ? progressA : progressB;
                 const balazosCount = isA
@@ -1083,7 +1525,7 @@ export const ChampionshipsView: React.FC = () => {
                 return (
                   <div
                     key={side}
-                    className={`rounded-2xl p-4 border transition-all space-y-4 ${
+                    className={`rounded-2xl p-4 border transition-all space-y-3.5 ${
                       isWinner
                         ? 'bg-emerald-500/15 border-emerald-400 shadow-lg shadow-emerald-500/10'
                         : 'bg-zinc-950/90 border-zinc-800'
@@ -1093,7 +1535,7 @@ export const ChampionshipsView: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                          Equipo / Jugador {side}
+                          Equipo {side}
                         </span>
                         <h4 className="text-base sm:text-lg font-extrabold text-zinc-100 truncate">
                           {teamName}
@@ -1115,6 +1557,35 @@ export const ChampionshipsView: React.FC = () => {
                         </span>
                       </div>
                     </div>
+
+                    {/* Players Roster Chips (Select who is throwing to log their name!) */}
+                    {playersList.length > 0 && (
+                      <div className="space-y-1 pt-1 border-t border-zinc-900">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
+                          Jugadores del equipo (toca quién lanza):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {playersList.map((pName, idx) => {
+                            const isSelectedShooter = activeShooter === pName;
+                            return (
+                              <button
+                                key={`${pName}-${idx}`}
+                                type="button"
+                                onClick={() => setActiveShooter(pName)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-all flex items-center gap-1 ${
+                                  isSelectedShooter
+                                    ? 'bg-amber-500/25 border-amber-400 text-amber-200'
+                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                                }`}
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                <span>{pName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Progress bar to Target Score */}
                     <div className="w-full h-2.5 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800">
@@ -1339,6 +1810,150 @@ export const ChampionshipsView: React.FC = () => {
               })}
             </div>
           </div>
+
+          {/* REGISTERED TEAMS & INDIVIDUAL PLAYERS ROSTER CARD */}
+          <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 shadow-2xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-amber-400" />
+                <h3 className="text-sm font-bold text-zinc-100">
+                  Equipos y Jugadores Inscritos ({activeChamp.teamDetails?.length || activeChamp.teams.length})
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                  {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInlineNewTeamPlayers(
+                    Array.from({ length: activeChamp.playersPerTeam || 2 }, () => '')
+                  );
+                  setShowInlineAddTeam((prev) => !prev);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Inscribir Equipo / Jugadores</span>
+              </button>
+            </div>
+
+            {showInlineAddTeam && (
+              <form
+                onSubmit={handleInlineAddTeamSubmit}
+                className="p-4 rounded-2xl bg-zinc-950 border border-amber-500/40 space-y-3 text-xs animate-in fade-in"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-300">
+                    Inscribir Nuevo Equipo en {activeChamp.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowInlineAddTeam(false)}
+                    className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 font-semibold mb-1">
+                    Nombre del Equipo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={inlineNewTeamName}
+                    onChange={(e) => setInlineNewTeamName(e.target.value)}
+                    placeholder="Ej. Los Compadres del Norte"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {inlineNewTeamPlayers.map((pVal, idx) => (
+                    <div key={idx}>
+                      <label className="block text-zinc-400 font-semibold mb-1">
+                        Nombre Jugador {idx + 1} *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={pVal}
+                        onChange={(e) => {
+                          const next = [...inlineNewTeamPlayers];
+                          next[idx] = e.target.value;
+                          setInlineNewTeamPlayers(next);
+                        }}
+                        placeholder={`Nombre completo Jugador ${idx + 1}`}
+                        className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setInlineNewTeamPlayers((prev) => [...prev, ''])}
+                    className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    + Agregar otro jugador a este equipo
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer"
+                  >
+                    Guardar Equipo
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {(activeChamp.teamDetails ||
+                activeChamp.teams.map((tName, i) => ({
+                  id: `fallback-${i}`,
+                  name: tName,
+                  players: [],
+                  paidEntry: true,
+                }))
+              ).map((team, idx) => (
+                <div
+                  key={team.id || idx}
+                  className="p-3 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-extrabold text-zinc-100 truncate">
+                      {idx + 1}. {team.name}
+                    </span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        team.paidEntry !== false
+                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                      }`}
+                    >
+                      {team.paidEntry !== false ? 'Inscrito' : 'Pendiente Pago'}
+                    </span>
+                  </div>
+                  {team.players && team.players.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {team.players.map((p, pIdx) => (
+                        <span
+                          key={pIdx}
+                          className="text-[11px] px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+                        >
+                          👤 {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* RIGHT COLUMN: TOURNAMENT BRACKET (LLAVES) & PLAY-BY-PLAY LOG */}
@@ -1357,7 +1972,7 @@ export const ChampionshipsView: React.FC = () => {
               </span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
               {activeChamp.matches.map((m) => {
                 const isSelected = m.id === activeMatch.id;
                 return (
@@ -1437,7 +2052,15 @@ export const ChampionshipsView: React.FC = () => {
                     className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-2 text-xs"
                   >
                     <div className="min-w-0">
-                      <div className="font-bold text-zinc-100 truncate">{ev.teamName}</div>
+                      <div className="font-bold text-zinc-100 truncate">
+                        {ev.teamName}
+                        {ev.playerName && (
+                          <span className="text-amber-400 font-semibold">
+                            {' '}
+                            · 👤 {ev.playerName}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-zinc-400 truncate">{ev.label}</div>
                     </div>
                     <div className="text-right shrink-0">
@@ -1454,24 +2077,24 @@ export const ChampionshipsView: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL TO CREATE A NEW CHAMPIONSHIP */}
+      {/* MODAL TO CREATE A NEW CHAMPIONSHIP (SUPER CUSTOMIZABLE: INDIVIDUAL, PAREJAS, TRIOS, CUARTETOS, PLAYERS) */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-5">
           <form
             onSubmit={handleCreateChampionship}
-            className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-xl max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-3xl max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800 sticky top-0 bg-zinc-900 z-10">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                   <Trophy className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-100">
-                    Crear Nuevo Campeonato
+                  <h3 className="text-base sm:text-lg font-extrabold text-zinc-100">
+                    Configurar Nuevo Campeonato Personalizado
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    Elige Tejo por Puntos, Tejo A Balazos o Bolirana y define tu meta para ganar
+                    Define modalidad, formato (Individual, Parejas, Tríos, Equipos), meta para ganar y nombres de cada jugador
                   </p>
                 </div>
               </div>
@@ -1484,80 +2107,144 @@ export const ChampionshipsView: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-zinc-300 mb-1">
-                  Nombre del Campeonato *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newChampName}
-                  onChange={(e) => setNewChampName(e.target.value)}
-                  placeholder="Ej. Relámpago Viernes de Balazos / Copa Bolirana"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
+            <div className="space-y-4 text-xs">
+              {/* Step 1: Name & Game Discipline */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-zinc-200 mb-1">
+                    1. Nombre del Campeonato *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newChampName}
+                    onChange={(e) => setNewChampName(e.target.value)}
+                    placeholder="Ej. Gran Torneo Relámpago de Viernes · Parejas / Tríos"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
 
-              <div>
-                <label className="block font-bold text-zinc-300 mb-1">
-                  Modalidad del Torneo *
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewChampMode('TEJO_PUNTOS');
-                      setNewChampTarget(27);
-                    }}
-                    className={`p-3 rounded-xl border text-left cursor-pointer ${
-                      newChampMode === 'TEJO_PUNTOS'
-                        ? 'bg-rose-500/20 border-rose-500 text-rose-200 font-bold'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-                    }`}
-                  >
-                    <div>🎯 Tejo por Puntos</div>
-                    <div className="text-[10px] opacity-80 mt-0.5">Mano 1, Mecha 3, Emb 6, Moñ 9</div>
-                  </button>
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-zinc-200 mb-1.5">
+                    2. Juego y Sistema de Puntaje *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewChampMode('TEJO_PUNTOS');
+                        setNewChampTarget(27);
+                      }}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        newChampMode === 'TEJO_PUNTOS'
+                          ? 'bg-rose-500/20 border-rose-500 text-rose-200 font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <div>🎯 Tejo por Puntos</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">
+                        Mano 1, Mecha 3, Embocinada 6, Moñona 9
+                      </div>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewChampMode('TEJO_BALAZOS');
-                      setNewChampTarget(5);
-                    }}
-                    className={`p-3 rounded-xl border text-left cursor-pointer ${
-                      newChampMode === 'TEJO_BALAZOS'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-                    }`}
-                  >
-                    <div>💥 Tejo A Balazos</div>
-                    <div className="text-[10px] opacity-80 mt-0.5">Solo Mechas Explotadas</div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewChampMode('TEJO_BALAZOS');
+                        setNewChampTarget(5);
+                      }}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        newChampMode === 'TEJO_BALAZOS'
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <div>💥 Tejo A Balazos</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">
+                        Solo Mechas Explotadas (+1 / Moñona +2)
+                      </div>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewChampMode('BOLIRANA');
-                      setNewChampTarget(3000);
-                    }}
-                    className={`p-3 rounded-xl border text-left cursor-pointer ${
-                      newChampMode === 'BOLIRANA'
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200 font-bold'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-                    }`}
-                  >
-                    <div>🐸 Bolirana / Rana</div>
-                    <div className="text-[10px] opacity-80 mt-0.5">Rana, Ranita, Molino, Puentes</div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewChampMode('BOLIRANA');
+                        setNewChampTarget(3000);
+                      }}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        newChampMode === 'BOLIRANA'
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200 font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <div>🐸 Bolirana / Rana</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">
+                        Rana 500, Botella 250, Molino 150, Puentes
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Step 2: Team Size Format (Individual, Parejas, Tríos, Cuartetos, Libre) */}
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                <label className="block font-bold text-amber-400">
+                  3. ¿Cómo se va a jugar? (Cantidad de Jugadores por Equipo) *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { id: 'INDIVIDUAL' as const, label: 'Individual', sub: '1 vs 1 (1 jugador)' },
+                    { id: 'PAREJAS' as const, label: 'En Parejas', sub: '2 vs 2 (Duplas)' },
+                    { id: 'TRIOS' as const, label: 'En Tríos', sub: '3 vs 3 (Ternas)' },
+                    { id: 'CUARTETOS' as const, label: 'Equipos de 4', sub: '4 vs 4 jugadores' },
+                    { id: 'LIBRE' as const, label: 'Personalizado', sub: 'Tú eliges cuántos' },
+                  ].map((fmt) => (
+                    <button
+                      key={fmt.id}
+                      type="button"
+                      onClick={() => handleSelectTeamFormat(fmt.id)}
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        newTeamFormat === fmt.id
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400 font-extrabold shadow-md'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-amber-500/40'
+                      }`}
+                    >
+                      <div className="text-xs">{fmt.label}</div>
+                      <div
+                        className={`text-[10px] mt-0.5 ${
+                          newTeamFormat === fmt.id ? 'text-zinc-900' : 'text-zinc-500'
+                        }`}
+                      >
+                        {fmt.sub}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {newTeamFormat === 'LIBRE' && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="text-zinc-300 font-semibold">
+                      Jugadores por equipo:
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={newPlayersPerTeam}
+                      onChange={(e) =>
+                        handleSelectTeamFormat('LIBRE', parseInt(e.target.value, 10) || 1)
+                      }
+                      className="w-20 px-3 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-amber-300 font-mono font-bold text-center"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Target Score, Entry Fee & Prize Pool */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-amber-400 mb-1">
-                    Meta para Ganar ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
+                    4. Meta para Ganar ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
                   </label>
                   <input
                     type="number"
@@ -1571,7 +2258,7 @@ export const ChampionshipsView: React.FC = () => {
 
                 <div>
                   <label className="block font-bold text-zinc-300 mb-1">
-                    Inscripción por Equipo
+                    Inscripción por Equipo ($)
                   </label>
                   <input
                     type="number"
@@ -1584,7 +2271,7 @@ export const ChampionshipsView: React.FC = () => {
 
                 <div>
                   <label className="block font-bold text-zinc-300 mb-1">
-                    Premio al Campeón
+                    Premio al Campeón ($)
                   </label>
                   <input
                     type="number"
@@ -1596,52 +2283,131 @@ export const ChampionshipsView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-zinc-800">
-                <div>
-                  <label className="block font-semibold text-zinc-400 mb-1">
-                    Equipo / Jugador 1 *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newTeam1}
-                    onChange={(e) => setNewTeam1(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100"
-                  />
+              {/* Step 4: Detailed Team & Individual Players Registration */}
+              <div className="space-y-3 pt-2 border-t border-zinc-800">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-extrabold text-zinc-100">
+                      5. Registro Detallado de Equipos y Nombres de Jugadores ({draftTeams.length} equipos)
+                    </h4>
+                    <p className="text-[11px] text-zinc-400">
+                      Escribe el nombre de cada equipo y el nombre de cada jugador que lo integra
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleShuffleDraftTeams}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      title="Sortear orden de llaves al azar"
+                    >
+                      <Shuffle className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Sortear Llaves</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAddDraftTeam}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Agregar Equipo</span>
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-zinc-400 mb-1">
-                    Equipo / Jugador 2 *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newTeam2}
-                    onChange={(e) => setNewTeam2(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-zinc-400 mb-1">
-                    Equipo / Jugador 3 (Semifinal 2)
-                  </label>
-                  <input
-                    type="text"
-                    value={newTeam3}
-                    onChange={(e) => setNewTeam3(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-zinc-400 mb-1">
-                    Equipo / Jugador 4 (Semifinal 2)
-                  </label>
-                  <input
-                    type="text"
-                    value={newTeam4}
-                    onChange={(e) => setNewTeam4(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100"
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
+                  {draftTeams.map((team, tIdx) => (
+                    <div
+                      key={team.id}
+                      className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
+                          Equipo #{tIdx + 1}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleDraftTeamPaid(team.id)}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border ${
+                              team.paidEntry
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                            }`}
+                          >
+                            {team.paidEntry ? '✓ Inscripción Pagada' : 'Pago Pendiente'}
+                          </button>
+                          {draftTeams.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDraftTeam(team.id)}
+                              className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 cursor-pointer"
+                              title="Quitar equipo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                          Nombre del Equipo / Pareja / Trío *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={team.name}
+                          onChange={(e) => handleUpdateDraftTeamName(team.id, e.target.value)}
+                          placeholder={`Ej. Equipo ${tIdx + 1}`}
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      {/* Individual Players inside this Team */}
+                      <div className="space-y-1.5 pt-1 border-t border-zinc-900">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-amber-400/90">
+                            Integrantes ({team.players.length}):
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleAddPlayerToDraftTeam(team.id)}
+                            className="text-[11px] text-emerald-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            + Jugador
+                          </button>
+                        </div>
+
+                        {team.players.map((playerName, pIdx) => (
+                          <div key={pIdx} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              required
+                              value={playerName}
+                              onChange={(e) =>
+                                handleUpdateDraftPlayerName(team.id, pIdx, e.target.value)
+                              }
+                              placeholder={`Nombre del Jugador ${pIdx + 1}`}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800/90 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
+                            />
+                            {team.players.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePlayerFromDraftTeam(team.id, pIdx)}
+                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                title="Quitar jugador"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1658,7 +2424,7 @@ export const ChampionshipsView: React.FC = () => {
                 type="submit"
                 className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold cursor-pointer shadow-lg shadow-amber-500/20"
               >
-                Crear e Iniciar Torneo
+                Crear Campeonato con {draftTeams.length} Equipos
               </button>
             </div>
           </form>
