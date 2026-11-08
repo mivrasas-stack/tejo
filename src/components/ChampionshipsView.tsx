@@ -14,8 +14,12 @@ import {
   X,
   Zap,
   UserPlus,
-  UserCheck,
   Shuffle,
+  Lock,
+  ChevronRight,
+  CircleDollarSign,
+  Play,
+  Sparkles,
 } from 'lucide-react';
 import { formatCurrency } from '../services/storage';
 
@@ -26,7 +30,7 @@ export type TeamFormatType = 'INDIVIDUAL' | 'PAREJAS' | 'TRIOS' | 'CUARTETOS' | 
 export interface ChampionshipTeam {
   id: string;
   name: string;
-  players: string[]; // Nombres individuales de cada jugador (ej. ['Carlos Pérez', 'Andrés Gómez'])
+  players: string[];
   paidEntry?: boolean;
   contactPhone?: string;
 }
@@ -43,7 +47,7 @@ export interface ChampionshipScoreEvent {
 
 export interface ChampionshipMatch {
   id: string;
-  roundName: string; // 'Cuartos de Final' | 'Semifinal' | 'Gran Final' | 'Partida Directa'
+  roundName: string;
   matchNumber: number;
   teamA: string;
   teamB: string;
@@ -89,24 +93,23 @@ export function getFormatLabel(format: TeamFormatType, count?: number): string {
     case 'CUARTETOS':
       return 'Equipos de 4 (4 vs 4)';
     case 'LIBRE':
-      return `Personalizado (${count || 2} por equipo)`;
+      return `Equipos (${count || 2} jugadores c/u)`;
   }
 }
 
-function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
-  const clean = teamNames.filter(Boolean);
-  const matches: ChampionshipMatch[] = [];
+function buildInitialMatches(teams: string[]): ChampionshipMatch[] {
+  const clean = teams.map((t) => t.trim()).filter(Boolean);
   const ts = Date.now();
+  const matches: ChampionshipMatch[] = [];
 
   if (clean.length >= 8) {
-    // Cuartos de Final (4 partidos) + Semifinales (2) + Gran Final (1)
     for (let i = 0; i < 4; i++) {
       matches.push({
         id: `m-${ts}-q${i + 1}`,
         roundName: `Cuartos de Final ${i + 1}`,
         matchNumber: i + 1,
-        teamA: clean[i * 2] || `Equipo ${i * 2 + 1}`,
-        teamB: clean[i * 2 + 1] || `Equipo ${i * 2 + 2}`,
+        teamA: clean[i * 2] || `Inscrito ${i * 2 + 1}`,
+        teamB: clean[i * 2 + 1] || `Inscrito ${i * 2 + 2}`,
         scoreA: 0,
         scoreB: 0,
         ranasOrBalazosA: 0,
@@ -114,7 +117,7 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
         mononasA: 0,
         mononasB: 0,
         status: i === 0 ? 'EN_JUEGO' : 'PENDIENTE',
-        canchaAsignada: `Cancha #${(i % 2) + 1}`,
+        canchaAsignada: `Cancha #${(i % 3) + 1}`,
         events: [],
       });
     }
@@ -131,7 +134,7 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
       mononasA: 0,
       mononasB: 0,
       status: 'PENDIENTE',
-      canchaAsignada: 'Cancha Principal #1',
+      canchaAsignada: 'Cancha #1',
       events: [],
     });
     matches.push({
@@ -147,7 +150,7 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
       mononasA: 0,
       mononasB: 0,
       status: 'PENDIENTE',
-      canchaAsignada: 'Cancha Principal #2',
+      canchaAsignada: 'Cancha #2',
       events: [],
     });
     matches.push({
@@ -163,7 +166,7 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
       mononasA: 0,
       mononasB: 0,
       status: 'PENDIENTE',
-      canchaAsignada: 'Cancha VIP / Final',
+      canchaAsignada: 'Cancha Principal VIP',
       events: [],
     });
   } else if (clean.length >= 4) {
@@ -171,8 +174,8 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
       id: `m-${ts}-1`,
       roundName: 'Semifinal 1',
       matchNumber: 1,
-      teamA: clean[0] || 'Equipo 1',
-      teamB: clean[1] || 'Equipo 2',
+      teamA: clean[0] || 'Inscrito 1',
+      teamB: clean[1] || 'Inscrito 2',
       scoreA: 0,
       scoreB: 0,
       ranasOrBalazosA: 0,
@@ -187,8 +190,8 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
       id: `m-${ts}-2`,
       roundName: 'Semifinal 2',
       matchNumber: 2,
-      teamA: clean[2] || 'Equipo 3',
-      teamB: clean[3] || 'Equipo 4',
+      teamA: clean[2] || 'Inscrito 3',
+      teamB: clean[3] || 'Inscrito 4',
       scoreA: 0,
       scoreB: 0,
       ranasOrBalazosA: 0,
@@ -220,8 +223,8 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
       id: `m-${ts}-1`,
       roundName: 'Gran Final Directa',
       matchNumber: 1,
-      teamA: clean[0] || 'Equipo A',
-      teamB: clean[1] || 'Equipo B',
+      teamA: clean[0] || 'Participante A',
+      teamB: clean[1] || 'Participante B',
       scoreA: 0,
       scoreB: 0,
       ranasOrBalazosA: 0,
@@ -247,42 +250,47 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
     targetScore: 27,
     entryFee: 60000,
     prizePool: 350000,
-    teams: ['Los Caciques', 'Mecha Brava', 'Bocín de Oro', 'Combo del Sur'],
+    teams: [
+      'Los Caciques del Bocín',
+      'Furia Boyacense',
+      'Mecha de Oro VIP',
+      'Combo Turmequé',
+    ],
     teamDetails: [
       {
         id: 'td-1',
-        name: 'Los Caciques',
-        players: ['Jairo Quintero', 'Camilo Pardo', 'Hernán Ríos'],
+        name: 'Los Caciques del Bocín',
+        players: ['Carlos Alvarado', 'Andrés Rincón', 'Jairo Méndez'],
         paidEntry: true,
       },
       {
         id: 'td-2',
-        name: 'Mecha Brava',
-        players: ['Mauricio Vargas', 'Diego Mora', 'Fabián Soto'],
+        name: 'Furia Boyacense',
+        players: ['Wilmar Vargas', 'Darío López', 'Édgar Pedraza'],
         paidEntry: true,
       },
       {
         id: 'td-3',
-        name: 'Bocín de Oro',
-        players: ['Óscar Gómez', 'Julián Peña', 'Édgar Cruz'],
+        name: 'Mecha de Oro VIP',
+        players: ['Camilo Roa', 'Sebastián Díaz', 'Mauricio Ruiz'],
         paidEntry: true,
       },
       {
         id: 'td-4',
-        name: 'Combo del Sur',
-        players: ['Nelson Rojas', 'Wilmer Díaz', 'Héctor Castro'],
-        paidEntry: false,
+        name: 'Combo Turmequé',
+        players: ['Hernán Cortés', 'Gustavo Parra', 'Felipe Mora'],
+        paidEntry: true,
       },
     ],
     status: 'ACTIVO',
     createdAt: 'Hoy · 08:00 PM',
     matches: [
       {
-        id: 'm-default-1',
+        id: 'm-tejo-1',
         roundName: 'Semifinal 1',
         matchNumber: 1,
-        teamA: 'Los Caciques',
-        teamB: 'Mecha Brava',
+        teamA: 'Los Caciques del Bocín',
+        teamB: 'Furia Boyacense',
         scoreA: 18,
         scoreB: 15,
         ranasOrBalazosA: 3,
@@ -290,34 +298,34 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         mononasA: 1,
         mononasB: 1,
         status: 'EN_JUEGO',
-        canchaAsignada: 'Cancha de Tejo #1',
+        canchaAsignada: 'Cancha de Tejo #1 (Arcilla)',
         events: [
           {
             id: 'ev-1',
             team: 'A',
-            teamName: 'Los Caciques',
-            playerName: 'Jairo Quintero',
-            label: '🔥 Moñona (Embocinada + Mecha)',
+            teamName: 'Los Caciques del Bocín',
+            playerName: 'Carlos Alvarado',
+            label: '🔥 ¡Moñona! (Mecha + Embocinada)',
             points: 9,
-            timestamp: '08:15 PM',
+            timestamp: '08:25 PM',
           },
           {
             id: 'ev-2',
             team: 'B',
-            teamName: 'Mecha Brava',
-            playerName: 'Mauricio Vargas',
-            label: '🎯 Embocinada en el Bocín',
+            teamName: 'Furia Boyacense',
+            playerName: 'Wilmar Vargas',
+            label: '🎯 Embocinada (Centro del Bocín)',
             points: 6,
-            timestamp: '08:18 PM',
+            timestamp: '08:20 PM',
           },
         ],
       },
       {
-        id: 'm-default-2',
+        id: 'm-tejo-2',
         roundName: 'Semifinal 2',
         matchNumber: 2,
-        teamA: 'Bocín de Oro',
-        teamB: 'Combo del Sur',
+        teamA: 'Mecha de Oro VIP',
+        teamB: 'Combo Turmequé',
         scoreA: 0,
         scoreB: 0,
         ranasOrBalazosA: 0,
@@ -329,7 +337,7 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         events: [],
       },
       {
-        id: 'm-default-3',
+        id: 'm-tejo-3',
         roundName: 'Gran Final',
         matchNumber: 3,
         teamA: 'Ganador Semifinal 1',
@@ -341,44 +349,49 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         mononasA: 0,
         mononasB: 0,
         status: 'PENDIENTE',
-        canchaAsignada: 'Cancha Principal',
+        canchaAsignada: 'Cancha Principal VIP',
         events: [],
       },
     ],
   },
   {
     id: 'champ-tejo-balazos',
-    name: 'Relámpago de Tejo "A Balazos" (Parejas)',
+    name: 'Relámpago "A Balazos" (Mecha Limpia)',
     mode: 'TEJO_BALAZOS',
     teamFormat: 'PAREJAS',
     playersPerTeam: 2,
     targetScore: 5,
-    entryFee: 30000,
-    prizePool: 150000,
-    teams: ['Pólvora Pura', 'Los Francotiradores', 'Trueno del Norte', 'Reyes del Bocín'],
+    entryFee: 40000,
+    prizePool: 200000,
+    teams: [
+      'Pólvora Pura',
+      'Los Francotiradores',
+      'Reyes de la Mecha',
+      'Trago & Balazo',
+    ],
     teamDetails: [
       {
         id: 'td-b1',
         name: 'Pólvora Pura',
-        players: ['Andrés Morales', 'Sebastián Gil'],
+        players: ['Diego Rodríguez', 'Julián Castro'],
         paidEntry: true,
       },
       {
         id: 'td-b2',
         name: 'Los Francotiradores',
-        players: ['Felipe Mejía', 'Cristian León'],
+        players: ['Óscar Mejía', 'Iván Pineda'],
         paidEntry: true,
       },
       {
         id: 'td-b3',
-        name: 'Trueno del Norte',
-        players: ['Gustavo Arias', 'Ricardo Ruiz'],
+        name: 'Reyes de la Mecha',
+        players: ['Néstor Cano', 'Héctor Gómez'],
         paidEntry: true,
       },
       {
         id: 'td-b4',
-        name: 'Reyes del Bocín',
-        players: ['Álvaro Ochoa', 'Darío Vélez'],
+        name: 'Trago & Balazo',
+        players: ['Fabián Ortiz', 'Ramiro Silva'],
         paidEntry: true,
       },
     ],
@@ -398,16 +411,16 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         mononasA: 0,
         mononasB: 0,
         status: 'EN_JUEGO',
-        canchaAsignada: 'Cancha de Tejo #2',
+        canchaAsignada: 'Cancha Rápida #3',
         events: [
           {
             id: 'ev-b1',
             team: 'A',
             teamName: 'Pólvora Pura',
-            playerName: 'Andrés Morales',
-            label: '💥 ¡Balazo! (Mecha Explotada)',
+            playerName: 'Diego Rodríguez',
+            label: '💥 ¡Balazo / Mecha Explotada! (+1)',
             points: 1,
-            timestamp: '09:05 PM',
+            timestamp: '09:12 PM',
           },
         ],
       },
@@ -415,8 +428,8 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         id: 'm-bal-2',
         roundName: 'Semifinal 2',
         matchNumber: 2,
-        teamA: 'Trueno del Norte',
-        teamB: 'Reyes del Bocín',
+        teamA: 'Reyes de la Mecha',
+        teamB: 'Trago & Balazo',
         scoreA: 0,
         scoreB: 0,
         ranasOrBalazosA: 0,
@@ -424,7 +437,7 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         mononasA: 0,
         mononasB: 0,
         status: 'PENDIENTE',
-        canchaAsignada: 'Cancha de Tejo #1',
+        canchaAsignada: 'Cancha Rápida #4',
         events: [],
       },
       {
@@ -440,44 +453,49 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         mononasA: 0,
         mononasB: 0,
         status: 'PENDIENTE',
-        canchaAsignada: 'Cancha Principal',
+        canchaAsignada: 'Cancha VIP',
         events: [],
       },
     ],
   },
   {
     id: 'champ-bolirana',
-    name: 'Copa Bolirana Electrónica · Rana de Oro',
+    name: 'Copa Bolirana de Oro AURA',
     mode: 'BOLIRANA',
     teamFormat: 'PAREJAS',
     playersPerTeam: 2,
     targetScore: 3000,
-    entryFee: 40000,
-    prizePool: 200000,
-    teams: ['Rana Maestra', 'Tiro Fijo VIP', 'Los Compadres', 'Combo Bolirana'],
+    entryFee: 30000,
+    prizePool: 180000,
+    teams: [
+      'Rana Maestra',
+      'Puntería Fina',
+      'Los Compadres',
+      'Combo Bolirana',
+    ],
     teamDetails: [
       {
         id: 'td-r1',
         name: 'Rana Maestra',
-        players: ['Fernando Gómez', 'Luis Eduardo'],
+        players: ['Fernando Gómez', 'Luis Patiño'],
         paidEntry: true,
       },
       {
         id: 'td-r2',
-        name: 'Tiro Fijo VIP',
-        players: ['Mateo Barrientos', 'Juan Pablo'],
+        name: 'Puntería Fina',
+        players: ['Jorge Arias', 'Daniel Suárez'],
         paidEntry: true,
       },
       {
         id: 'td-r3',
         name: 'Los Compadres',
-        players: ['Ramiro Cano', 'Jorge Iván'],
+        players: ['Miguel Ángel', 'Pedro Nel'],
         paidEntry: true,
       },
       {
         id: 'td-r4',
         name: 'Combo Bolirana',
-        players: ['Santiago Villa', 'Daniel Ospina'],
+        players: ['César Augusto', 'Álvaro Uribe'],
         paidEntry: true,
       },
     ],
@@ -489,9 +507,9 @@ export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
         roundName: 'Semifinal 1',
         matchNumber: 1,
         teamA: 'Rana Maestra',
-        teamB: 'Tiro Fijo VIP',
-        scoreA: 1450,
-        scoreB: 1100,
+        teamB: 'Puntería Fina',
+        scoreA: 1250,
+        scoreB: 900,
         ranasOrBalazosA: 2,
         ranasOrBalazosB: 1,
         mononasA: 0,
@@ -569,6 +587,8 @@ function parseCopCurrencyInput(formatted: string): number {
   return parseInt(digits, 10) || 0;
 }
 
+type ChampSubView = 'LIVE_BOARD' | 'BRACKET' | 'ROSTER' | 'PRIVATE_FINANCES';
+
 export const ChampionshipsView: React.FC = () => {
   const [championships, setChampionships] = useState<Championship[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_CHAMPIONSHIPS);
@@ -587,10 +607,13 @@ export const ChampionshipsView: React.FC = () => {
     return championships[0]?.id || DEFAULT_CHAMPIONSHIPS[0].id;
   });
 
+  // Clean 4-Tab Navigation inside ChampionshipsView
+  const [activeSubView, setActiveSubView] = useState<ChampSubView>('LIVE_BOARD');
+
   const [selectedMatchId, setSelectedMatchId] = useState<string>('');
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createModalStep, setCreateModalStep] = useState<'CONFIG' | 'PARTICIPANTS'>('CONFIG');
 
   // Active Shooter / Player selector per side in the live scoreboard
   const [selectedPlayerA, setSelectedPlayerA] = useState<string>('');
@@ -601,7 +624,7 @@ export const ChampionshipsView: React.FC = () => {
   const [customPointsInputA, setCustomPointsInputA] = useState<string>('');
   const [customPointsInputB, setCustomPointsInputB] = useState<string>('');
 
-  // Create Championship Form State (100% Customizable Teams & Players)
+  // Create Championship Form State
   const [newChampName, setNewChampName] = useState('');
   const [newChampMode, setNewChampMode] = useState<ChampionshipMode>('TEJO_PUNTOS');
   const [newTeamFormat, setNewTeamFormat] = useState<TeamFormatType>('PAREJAS');
@@ -619,7 +642,6 @@ export const ChampionshipsView: React.FC = () => {
   );
   const [draftTeamsCountInput, setDraftTeamsCountInput] = useState<string>('4');
 
-  // Clean any stale default 'Jugador X' or 'Equipo X' strings if preserved by HMR
   useEffect(() => {
     setDraftTeams((prev) =>
       prev.map((t) => ({
@@ -661,7 +683,6 @@ export const ChampionshipsView: React.FC = () => {
     activeChamp?.matches.find((m) => m.id === selectedMatchId) ||
     activeChamp?.matches[0];
 
-  // Sync active player selection when match changes
   const teamADetails = activeChamp?.teamDetails?.find(
     (td) => td.name === activeMatch?.teamA
   );
@@ -674,7 +695,6 @@ export const ChampionshipsView: React.FC = () => {
     setSelectedPlayerB(teamBDetails?.players?.[0] || '');
   }, [activeMatch?.id, activeMatch?.teamA, activeMatch?.teamB]);
 
-  // Handle changing team format in Create Modal (Individual 1, Parejas 2, Tríos 3, Cuartetos 4, Libre N)
   const applyPlayersCountToDraftTeams = (targetCount: number) => {
     const safeCount = Math.max(1, Math.min(20, targetCount));
     setNewPlayersPerTeam(safeCount);
@@ -837,26 +857,25 @@ export const ChampionshipsView: React.FC = () => {
     switch (mode) {
       case 'TEJO_PUNTOS':
         return {
-          label: 'Tejo Tradicional (Por Puntos)',
+          label: 'Tejo por Puntos',
           unit: 'ptos',
           color: 'bg-rose-500/20 text-rose-300 border-rose-500/35',
         };
       case 'TEJO_BALAZOS':
         return {
-          label: 'Tejo "A Balazos" (Por Mechas)',
+          label: 'Tejo A Balazos',
           unit: 'balazos',
           color: 'bg-amber-500/20 text-amber-300 border-amber-500/35',
         };
       case 'BOLIRANA':
         return {
-          label: 'Bolirana / Rana Oficial',
+          label: 'Bolirana / Rana',
           unit: 'ptos',
           color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35',
         };
     }
   };
 
-  // Update the target score of the active championship at any time
   const handleUpdateTargetScore = (newTarget: number) => {
     if (!activeChamp || isNaN(newTarget) || newTarget <= 0) return;
     setEditingTargetScore(String(newTarget));
@@ -867,7 +886,6 @@ export const ChampionshipsView: React.FC = () => {
     );
   };
 
-  // Switch active championship mode on the fly if desired
   const handleSwitchChampMode = (newMode: ChampionshipMode) => {
     if (!activeChamp) return;
     const defaultTarget =
@@ -882,7 +900,6 @@ export const ChampionshipsView: React.FC = () => {
     );
   };
 
-  // Score a play for Team A or Team B in the active match
   const handleAddScore = (
     team: 'A' | 'B',
     points: number,
@@ -957,13 +974,11 @@ export const ChampionshipsView: React.FC = () => {
           };
         });
 
-        // Propagate winners in 4-team or 8-team bracket
         const totalMatches = updatedMatches.length;
         let tournamentChampion = champ.champion;
         let tournamentStatus = champ.status;
 
         if (totalMatches === 3) {
-          // 4-team bracket (Semis 1 & 2 -> Final 3)
           const semi1 = updatedMatches.find((m) => m.matchNumber === 1);
           const semi2 = updatedMatches.find((m) => m.matchNumber === 2);
           const finalMatch = updatedMatches.find((m) => m.matchNumber === 3);
@@ -994,14 +1009,12 @@ export const ChampionshipsView: React.FC = () => {
             }
           }
         } else if (totalMatches === 7) {
-          // 8-team bracket (Quarters 1..4 -> Semis 5..6 -> Final 7)
           const q1 = updatedMatches.find((m) => m.matchNumber === 1);
           const q2 = updatedMatches.find((m) => m.matchNumber === 2);
           const q3 = updatedMatches.find((m) => m.matchNumber === 3);
           const q4 = updatedMatches.find((m) => m.matchNumber === 4);
           const s1 = updatedMatches.find((m) => m.matchNumber === 5);
           const s2 = updatedMatches.find((m) => m.matchNumber === 6);
-          const fin = updatedMatches.find((m) => m.matchNumber === 7);
 
           updatedMatches = updatedMatches.map((m) => {
             if (m.matchNumber === 5) {
@@ -1069,7 +1082,6 @@ export const ChampionshipsView: React.FC = () => {
     );
   };
 
-  // Undo last score event in the active match
   const handleUndoLastEvent = () => {
     if (!activeChamp || !activeMatch || activeMatch.events.length === 0) return;
     const [lastEvent, ...remainingEvents] = activeMatch.events;
@@ -1105,7 +1117,6 @@ export const ChampionshipsView: React.FC = () => {
     );
   };
 
-  // Reset match scores
   const handleResetMatch = () => {
     if (!activeChamp || !activeMatch) return;
     setChampionships((prev) =>
@@ -1136,7 +1147,6 @@ export const ChampionshipsView: React.FC = () => {
     );
   };
 
-  // Create a new championship with full team & player roster
   const handleCreateChampionship = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName =
@@ -1215,12 +1225,14 @@ export const ChampionshipsView: React.FC = () => {
     setChampionships((prev) => [created, ...prev]);
     setSelectedChampId(created.id);
     setSelectedMatchId(createdMatches[0].id);
+    setActiveSubView('LIVE_BOARD');
     setShowCreateModal(false);
+    setCreateModalStep('CONFIG');
     setNewChampName('');
     setDraftTeams(createEmptyTeamDrafts(4, newPlayersPerTeam));
+    setDraftTeamsCountInput('4');
   };
 
-  // Add a new team or individual player to the currently active championship
   const handleInlineAddTeamSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeChamp) return;
@@ -1302,62 +1314,53 @@ export const ChampionshipsView: React.FC = () => {
     Math.round((activeMatch.scoreB / Math.max(1, activeChamp.targetScore)) * 100)
   );
 
-  return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* TOP HEADER BANNER */}
-      <div className="rounded-3xl border border-amber-500/35 bg-gradient-to-br from-amber-500/15 via-rose-500/10 to-zinc-950 p-5 sm:p-7 shadow-2xl relative overflow-hidden">
-        <div className="absolute -right-12 -top-12 w-72 h-72 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+  const isActiveChampIndividual =
+    activeChamp.teamFormat === 'INDIVIDUAL' || activeChamp.playersPerTeam === 1;
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-zinc-950 flex items-center justify-center shadow-lg shadow-amber-500/25 shrink-0">
-              <Trophy className="w-6 h-6 sm:w-7 sm:h-7" />
+  return (
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* 1. CLEAN EXECUTIVE HEADER & TOURNAMENT BAR */}
+      <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-950 p-5 sm:p-6 shadow-2xl space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-zinc-950 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+              <Trophy className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/35 text-[10px] font-bold uppercase tracking-wider">
-                  {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
-                </span>
                 <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${badge.color}`}>
                   {badge.label}
                 </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-zinc-800 text-amber-300 border border-zinc-700 text-[10px] font-bold">
+                  {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold">
+                  Premio Campeón: {formatCurrency(activeChamp.prizePool)}
+                </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-zinc-100 font-display mt-1">
-                Campeonatos de Tejo, A Balazos & Bolirana
+              <h2 className="text-lg sm:text-2xl font-extrabold text-zinc-100 font-display mt-1">
+                {activeChamp.name}
               </h2>
-              <p className="text-xs text-zinc-300 mt-0.5 max-w-2xl">
-                Configura torneos individuales, por parejas, tríos o equipos completos con registro detallado de cada jugador, puntaje meta libre y tablero en vivo.
-              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowHistoryModal((prev) => !prev)}
-              className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
-                showHistoryModal
-                  ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
-                  : 'bg-zinc-900 hover:bg-zinc-800 border-emerald-500/40 text-emerald-300'
-              }`}
-            >
-              <Award className="w-4 h-4" />
-              <span>{showHistoryModal ? 'Ocultar Historial & Ganancias' : 'Historial & Ganancias (Privado)'}</span>
-            </button>
-
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setShowRulesModal((prev) => !prev)}
-              className="px-3.5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+              className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
             >
               <BookOpen className="w-4 h-4 text-amber-400" />
-              <span>{showRulesModal ? 'Ocultar Reglamento' : 'Ver Reglamento & Puntajes'}</span>
+              <span>{showRulesModal ? 'Ocultar Reglas' : 'Reglamento'}</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-all shadow-lg shadow-amber-500/20"
+              onClick={() => {
+                setCreateModalStep('CONFIG');
+                setShowCreateModal(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-all shadow-lg shadow-amber-500/20"
             >
               <Plus className="w-4 h-4" />
               <span>Nuevo Campeonato</span>
@@ -1365,74 +1368,852 @@ export const ChampionshipsView: React.FC = () => {
           </div>
         </div>
 
-        {/* TOURNAMENT SELECTOR PILLS */}
-        <div className="relative z-10 mt-5 pt-4 border-t border-zinc-800/80 flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-zinc-400 shrink-0 mr-1">
-            Torneos Activos:
-          </span>
-          {championships.map((c) => {
-            const isSelected = c.id === activeChamp.id;
-            return (
-              <div
-                key={c.id}
-                onClick={() => setSelectedChampId(c.id)}
-                className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all shrink-0 ${
-                  isSelected
-                    ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md'
-                    : 'bg-zinc-900/90 text-zinc-300 border-zinc-800 hover:border-amber-500/40'
-                }`}
-              >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>{c.name}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected ? 'bg-zinc-950/20 text-zinc-950' : 'bg-zinc-800 text-amber-400'
+        {/* TOURNAMENT SELECTOR PILLS + CLEAN 4-SECTION NAVIGATION TABS */}
+        <div className="pt-4 border-t border-zinc-800/80 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          {/* Active Tournaments Selector */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 shrink-0">
+              Torneo:
+            </span>
+            {championships.map((c) => {
+              const isSelected = c.id === activeChamp.id;
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => setSelectedChampId(c.id)}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all shrink-0 ${
+                    isSelected
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                      : 'bg-zinc-900/80 text-zinc-400 border-zinc-800 hover:text-zinc-200'
                   }`}
                 >
-                  Meta: {c.targetScore}{' '}
-                  {c.mode === 'TEJO_BALAZOS' ? 'balazos' : 'ptos'}
-                </span>
-                {championships.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteChampionship(c.id);
-                    }}
-                    className={`p-0.5 rounded hover:bg-rose-500/20 ${
-                      isSelected ? 'text-zinc-900 hover:text-rose-900' : 'text-zinc-500 hover:text-rose-400'
-                    }`}
-                    title="Eliminar torneo"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{c.name}</span>
+                  {championships.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChampionship(c.id);
+                      }}
+                      className="p-0.5 rounded hover:bg-rose-500/20 text-zinc-500 hover:text-rose-400"
+                      title="Eliminar torneo"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 4 Clean Sub-Tabs (Apartados Organizados) */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-950 border border-zinc-800 overflow-x-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveSubView('LIVE_BOARD')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
+                activeSubView === 'LIVE_BOARD'
+                  ? 'bg-amber-500 text-zinc-950 shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <Target className="w-3.5 h-3.5" />
+              <span>1. Tablero en Vivo</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubView('BRACKET')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
+                activeSubView === 'BRACKET'
+                  ? 'bg-amber-500 text-zinc-950 shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>2. Llaves ({activeChamp.matches.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubView('ROSTER')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
+                activeSubView === 'ROSTER'
+                  ? 'bg-amber-500 text-zinc-950 shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>
+                3. {isActiveChampIndividual ? 'Jugadores' : 'Equipos'} ({activeChamp.teamDetails?.length || activeChamp.teams.length})
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubView('PRIVATE_FINANCES')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
+                activeSubView === 'PRIVATE_FINANCES'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-md'
+                  : 'text-emerald-400 hover:bg-emerald-500/10'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>4. Historial & Ganancias</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* PRIVATE CHAMPIONSHIPS HISTORY & FINANCIAL PROFIT PANEL */}
-      {showHistoryModal && (
-        <div className="rounded-3xl bg-zinc-900/95 border border-emerald-500/40 p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in duration-150">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
-            <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-zinc-100 flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-400" />
-                <span>🔒 Historial Privado de Campeonatos, Participantes y Ganancias del Negocio</span>
-              </h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Información exclusiva para administración: personas que jugaron, modalidad, ganador, recaudo 100%, premio entregado y tu ganancia neta.
-              </p>
-            </div>
+      {/* COLLAPSIBLE OFFICIAL RULES */}
+      {showRulesModal && (
+        <div className="rounded-3xl bg-zinc-900/95 border border-amber-500/35 p-5 shadow-2xl space-y-4 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>Reglamento Oficial: Tejo por Puntos, Tejo A Balazos y Bolirana</span>
+            </h3>
             <button
               type="button"
-              onClick={() => setShowHistoryModal(false)}
-              className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-xl bg-zinc-800 cursor-pointer font-bold"
+              onClick={() => setShowRulesModal(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-lg bg-zinc-800 cursor-pointer"
             >
-              Cerrar Historial
+              Cerrar
             </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div className="p-3.5 rounded-2xl bg-zinc-950 border border-rose-500/30 space-y-1.5">
+              <div className="font-bold text-rose-400">🎯 1. Tejo por Puntos (FEDETEJO)</div>
+              <p className="text-zinc-400">
+                Meta estándar <strong>27 puntos</strong> (configurable). Mano <strong>+1</strong>, Mecha <strong>+3</strong>, Embocinada <strong>+6</strong> y Moñona <strong>+9</strong>.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-950 border border-amber-500/30 space-y-1.5">
+              <div className="font-bold text-amber-400">💥 2. Tejo "A Balazos" (Mecha Limpia)</div>
+              <p className="text-zinc-400">
+                Solo cuentan las mechas explotadas (no se suma mano). Cada mecha vale <strong>+1 Balazo</strong> y la Moñona <strong>+2 Balazos</strong>.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-950 border border-emerald-500/30 space-y-1.5">
+              <div className="font-bold text-emerald-400">🐸 3. Bolirana / Rana</div>
+              <p className="text-zinc-400">
+                6 balines por turno. Rana Mayor <strong>+500</strong>, Ranita/Botella <strong>+250</strong>, Molino <strong>+150</strong>, Puentes <strong>+100</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          APARTADO 1: TABLERO EN VIVO (CLEAN, FOCUSED ARENA SCOREBOARD)
+         ===================================================================== */}
+      {activeSubView === 'LIVE_BOARD' && (
+        <div className="space-y-4">
+          {/* Quick Match Selector Bar + Target Config */}
+          <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Match Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 shrink-0">
+                Partido en Cancha:
+              </span>
+              {activeChamp.matches.map((m) => {
+                const isSelected = m.id === activeMatch.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setSelectedMatchId(m.id)}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all shrink-0 ${
+                      isSelected
+                        ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-sm'
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-amber-500/40'
+                    }`}
+                  >
+                    <span>{m.roundName}:</span>
+                    <span className="truncate max-w-[140px]">{m.teamA} vs {m.teamB}</span>
+                    <span className="font-mono px-1.5 py-0.2 rounded bg-black/20">
+                      {m.scoreA}-{m.scoreB}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Target Score & Quick Actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1">
+                <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] text-zinc-400 font-semibold">
+                  Meta ({badge.unit}):
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  value={editingTargetScore}
+                  onChange={(e) => {
+                    setEditingTargetScore(e.target.value);
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val > 0) handleUpdateTargetScore(val);
+                  }}
+                  className="w-16 px-2 py-0.5 rounded-lg bg-zinc-900 border border-amber-500/40 text-amber-300 font-mono font-extrabold text-xs text-center focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleUndoLastEvent}
+                disabled={activeMatch.events.length === 0}
+                className="px-3 py-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 border border-zinc-800 text-zinc-300 text-xs font-semibold cursor-pointer"
+              >
+                Deshacer Jugada
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetMatch}
+                className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reiniciar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Winner Banner if Match Finished */}
+          {activeMatch.status === 'FINALIZADO' && activeMatch.winner && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-amber-500/15 to-emerald-500/20 border border-emerald-500/40 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="text-sm font-extrabold text-emerald-300">
+                    ¡Victoria de {activeMatch.winner}!
+                  </div>
+                  <div className="text-xs text-zinc-300">
+                    Alcanzó la meta de {activeChamp.targetScore} {badge.unit} en {activeMatch.roundName}.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSubView('BRACKET')}
+                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold cursor-pointer"
+              >
+                Ver Cuadro de Llaves →
+              </button>
+            </div>
+          )}
+
+          {/* TWO-SIDED ARENA SCOREBOARD (SIDE A vs SIDE B) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {(['A', 'B'] as const).map((side) => {
+              const isSideA = side === 'A';
+              const teamName = isSideA ? activeMatch.teamA : activeMatch.teamB;
+              const score = isSideA ? activeMatch.scoreA : activeMatch.scoreB;
+              const progress = isSideA ? progressA : progressB;
+              const ranasOrBalazos = isSideA
+                ? activeMatch.ranasOrBalazosA
+                : activeMatch.ranasOrBalazosB;
+              const mononas = isSideA ? activeMatch.mononasA : activeMatch.mononasB;
+              const isWinner = activeMatch.winner === teamName;
+              const customInput = isSideA ? customPointsInputA : customPointsInputB;
+              const setCustomInput = isSideA
+                ? setCustomPointsInputA
+                : setCustomPointsInputB;
+              const teamRoster = isSideA ? teamADetails : teamBDetails;
+              const activePlayer = isSideA ? selectedPlayerA : selectedPlayerB;
+              const setActivePlayer = isSideA ? setSelectedPlayerA : setSelectedPlayerB;
+
+              return (
+                <div
+                  key={side}
+                  className={`rounded-3xl p-5 sm:p-6 border transition-all flex flex-col justify-between space-y-5 shadow-2xl ${
+                    isWinner
+                      ? 'bg-emerald-950/25 border-emerald-500/60'
+                      : 'bg-zinc-900/95 border-zinc-800'
+                  }`}
+                >
+                  {/* Top Competitor Header + Digital Score */}
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-zinc-800 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                          {isActiveChampIndividual
+                            ? `Jugador ${side}`
+                            : `Lado ${side} · ${activeMatch.canchaAsignada || 'Cancha Principal'}`}
+                        </span>
+                        <h4 className="text-xl sm:text-2xl font-extrabold text-zinc-100 mt-1 truncate">
+                          {teamName}
+                        </h4>
+                      </div>
+
+                      <div className="text-right shrink-0 bg-zinc-950 border border-zinc-800 px-4 py-2 rounded-2xl">
+                        <div className="text-3xl sm:text-4xl font-black font-mono text-amber-400 tabular-nums leading-none">
+                          {score}
+                        </div>
+                        <div className="text-[10px] text-zinc-500 font-mono mt-1">
+                          META: {activeChamp.targetScore} {badge.unit.toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <div className="w-full h-2.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            isWinner
+                              ? 'bg-emerald-400'
+                              : isSideA
+                              ? 'bg-gradient-to-r from-amber-500 to-rose-500'
+                              : 'bg-gradient-to-r from-indigo-500 to-emerald-400'
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                        <span>
+                          {activeChamp.mode === 'BOLIRANA'
+                            ? `🐸 Ranas: ${ranasOrBalazos}`
+                            : `💥 Mechas/Balazos: ${ranasOrBalazos} · 🔥 Moñonas: ${mononas}`}
+                        </span>
+                        <span>
+                          Faltan {Math.max(0, activeChamp.targetScore - score)} {badge.unit}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Player Selector Pills (Only when Team has >1 player) */}
+                    {teamRoster && teamRoster.players.length > 1 && (
+                      <div className="p-2.5 rounded-2xl bg-zinc-950/90 border border-zinc-800/80 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
+                          ¿Quién lanza en este turno?
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {teamRoster.players.map((pName, idx) => {
+                            const isSelectedPlayer = activePlayer === pName;
+                            return (
+                              <button
+                                key={`${pName}-${idx}`}
+                                type="button"
+                                onClick={() => setActivePlayer(pName)}
+                                className={`px-2.5 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                                  isSelectedPlayer
+                                    ? 'bg-amber-500 text-zinc-950 shadow-sm'
+                                    : 'bg-zinc-900 text-zinc-300 border border-zinc-800 hover:border-amber-500/40'
+                                }`}
+                              >
+                                👤 {pName}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick One-Tap Scoring Buttons */}
+                  <div className="space-y-2.5 pt-2 border-t border-zinc-800/80">
+                    {activeChamp.mode === 'TEJO_PUNTOS' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddScore(side, 1, '✋ Mano (Tejo más cercano)')
+                          }
+                          className="p-3 rounded-2xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-left cursor-pointer transition-all group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-zinc-200">✋ Mano</span>
+                            <span className="text-sm font-mono font-extrabold text-amber-400">+1</span>
+                          </div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">Más cercano al bocín</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddScore(side, 3, '💥 Mecha / Balazo', {
+                              isBalazoOrRana: true,
+                            })
+                          }
+                          className="p-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/35 text-left cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-amber-300">💥 Mecha</span>
+                            <span className="text-sm font-mono font-extrabold text-amber-400">+3</span>
+                          </div>
+                          <div className="text-[10px] text-amber-200/70 mt-0.5">Explosión de pólvora</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddScore(side, 6, '🎯 Embocinada (Centro)')
+                          }
+                          className="p-3 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/35 text-left cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-indigo-300">🎯 Embocinada</span>
+                            <span className="text-sm font-mono font-extrabold text-indigo-400">+6</span>
+                          </div>
+                          <div className="text-[10px] text-indigo-200/70 mt-0.5">Cae dentro del bocín</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddScore(side, 9, '🔥 ¡MOÑONA! (Mecha + Bocín)', {
+                              isBalazoOrRana: true,
+                              isMonona: true,
+                            })
+                          }
+                          className="p-3 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-left cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-extrabold text-rose-300">🔥 ¡Moñona!</span>
+                            <span className="text-sm font-mono font-extrabold text-rose-400">+9</span>
+                          </div>
+                          <div className="text-[10px] text-rose-200/70 mt-0.5">Mecha + Embocinada</div>
+                        </button>
+                      </div>
+                    )}
+
+                    {activeChamp.mode === 'TEJO_BALAZOS' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddScore(side, 1, '💥 ¡Balazo Limpio! (Mecha)', {
+                              isBalazoOrRana: true,
+                            })
+                          }
+                          className="p-3.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/45 text-left cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-extrabold text-amber-300">💥 ¡Balazo!</span>
+                            <span className="text-base font-mono font-black text-amber-400">+1</span>
+                          </div>
+                          <div className="text-[10px] text-amber-200/75 mt-0.5">Mecha explotada</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddScore(side, 2, '🔥 ¡Moñona A Balazos! (Doble)', {
+                              isBalazoOrRana: true,
+                              isMonona: true,
+                            })
+                          }
+                          className="p-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/45 text-left cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-extrabold text-rose-300">🔥 Moñona</span>
+                            <span className="text-base font-mono font-black text-rose-400">+2</span>
+                          </div>
+                          <div className="text-[10px] text-rose-200/75 mt-0.5">Mecha + Embocinada</div>
+                        </button>
+                      </div>
+                    )}
+
+                    {activeChamp.mode === 'BOLIRANA' && (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { pts: 500, name: '🐸 Rana Mayor', rana: true },
+                          { pts: 250, name: '🍾 Ranita/Botella', rana: true },
+                          { pts: 150, name: '🎡 Molino', rana: false },
+                          { pts: 100, name: '🌉 Puente', rana: false },
+                          { pts: 50, name: '⭕ Lateral', rana: false },
+                          { pts: 20, name: '🔹 Base', rana: false },
+                        ].map((btn) => (
+                          <button
+                            key={btn.pts}
+                            type="button"
+                            onClick={() =>
+                              handleAddScore(side, btn.pts, `${btn.name} (+${btn.pts})`, {
+                                isBalazoOrRana: btn.rana,
+                              })
+                            }
+                            className="p-2.5 rounded-xl bg-zinc-950 hover:bg-emerald-500/15 border border-zinc-800 hover:border-emerald-500/40 text-left cursor-pointer transition-all"
+                          >
+                            <div className="text-[11px] font-bold text-zinc-200 truncate">
+                              {btn.name}
+                            </div>
+                            <div className="text-xs font-mono font-extrabold text-emerald-400">
+                              +{btn.pts}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Manual Custom Score Input */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const pts = parseInt(customInput, 10);
+                        if (!isNaN(pts) && pts > 0) {
+                          handleAddScore(side, pts, `⚡ Puntaje Manual (+${pts})`);
+                          setCustomInput('');
+                        }
+                      }}
+                      className="flex items-center gap-2 pt-1"
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        value={customInput}
+                        onChange={(e) => setCustomInput(e.target.value)}
+                        placeholder={`Sumar ${badge.unit} manuales...`}
+                        className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!customInput.trim()}
+                        className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 disabled:opacity-40 text-zinc-200 text-xs font-bold cursor-pointer shrink-0 transition-colors"
+                      >
+                        + Sumar
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Compact Recent Plays Log at the Bottom of the Live Board */}
+          <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                Últimas Jugadas Registradas ({activeMatch.events.length})
+              </span>
+              <span className="text-[11px] text-zinc-500">{activeMatch.roundName}</span>
+            </div>
+
+            {activeMatch.events.length === 0 ? (
+              <p className="text-xs text-zinc-500 py-2">
+                Aún no hay jugadas en este partido. Toca cualquier botón de jugada arriba para anotar.
+              </p>
+            ) : (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {activeMatch.events.slice(0, 8).map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 shrink-0 flex items-center gap-2.5 text-xs"
+                  >
+                    <div>
+                      <div className="font-bold text-zinc-100">
+                        {ev.teamName}
+                        {ev.playerName && ev.playerName !== ev.teamName && (
+                          <span className="text-amber-400"> · {ev.playerName}</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">{ev.label}</div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-extrabold">
+                      +{ev.points}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          APARTADO 2: CUADRO DE LLAVES Y PARTIDOS DEL TORNEO
+         ===================================================================== */}
+      {activeSubView === 'BRACKET' && (
+        <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800">
+            <div>
+              <h3 className="text-base font-extrabold text-zinc-100 flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                <span>Cuadro de Llaves y Partidos · {activeChamp.name}</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Haz clic en cualquier partido para abrirlo inmediatamente en el Tablero en Vivo.
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono font-bold">
+              Premio al Campeón: {formatCurrency(activeChamp.prizePool)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {activeChamp.matches.map((m) => {
+              const isSelected = m.id === activeMatch.id;
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => {
+                    setSelectedMatchId(m.id);
+                    setActiveSubView('LIVE_BOARD');
+                  }}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-3 ${
+                    isSelected
+                      ? 'bg-amber-500/15 border-amber-500/60 shadow-lg'
+                      : 'bg-zinc-950 border-zinc-800 hover:border-amber-500/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-extrabold uppercase tracking-wider text-amber-400">
+                      {m.roundName}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        m.status === 'FINALIZADO'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : m.status === 'EN_JUEGO'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {m.status === 'FINALIZADO'
+                        ? `Ganador: ${m.winner}`
+                        : m.status === 'EN_JUEGO'
+                        ? 'En Juego'
+                        : 'Pendiente'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800/80">
+                      <span
+                        className={`text-xs font-bold truncate ${
+                          m.winner === m.teamA ? 'text-emerald-400' : 'text-zinc-100'
+                        }`}
+                      >
+                        {m.teamA}
+                      </span>
+                      <span className="font-mono font-extrabold text-sm text-amber-300">
+                        {m.scoreA}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800/80">
+                      <span
+                        className={`text-xs font-bold truncate ${
+                          m.winner === m.teamB ? 'text-emerald-400' : 'text-zinc-100'
+                        }`}
+                      >
+                        {m.teamB}
+                      </span>
+                      <span className="font-mono font-extrabold text-sm text-amber-300">
+                        {m.scoreB}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1">
+                    <span>{m.canchaAsignada || 'Cancha Principal'}</span>
+                    <span className="text-amber-400 font-bold flex items-center gap-1">
+                      <Play className="w-3 h-3" /> Ir al Tablero
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          APARTADO 3: JUGADORES / EQUIPOS INSCRITOS EN EL TORNEO
+         ===================================================================== */}
+      {activeSubView === 'ROSTER' && (
+        <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-400" />
+              <div>
+                <h3 className="text-base font-extrabold text-zinc-100">
+                  {isActiveChampIndividual
+                    ? `Jugadores Inscritos (${activeChamp.teamDetails?.length || activeChamp.teams.length})`
+                    : `Equipos y Jugadores Inscritos (${activeChamp.teamDetails?.length || activeChamp.teams.length})`}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)} · Inscripción: {formatCurrency(activeChamp.entryFee)}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setInlineNewTeamPlayers(
+                  Array.from({ length: activeChamp.playersPerTeam || 2 }, () => '')
+                );
+                setShowInlineAddTeam((prev) => !prev);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>
+                {isActiveChampIndividual ? '+ Inscribir Jugador' : '+ Inscribir Equipo'}
+              </span>
+            </button>
+          </div>
+
+          {showInlineAddTeam && (
+            <form
+              onSubmit={handleInlineAddTeamSubmit}
+              className="p-4 rounded-2xl bg-zinc-950 border border-amber-500/40 space-y-3 text-xs"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-300">
+                  {isActiveChampIndividual
+                    ? `Inscribir Nuevo Jugador en ${activeChamp.name}`
+                    : `Inscribir Nuevo Equipo en ${activeChamp.name}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowInlineAddTeam(false)}
+                  className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {isActiveChampIndividual ? (
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="block text-zinc-400 font-semibold mb-1">
+                      Nombre del Jugador *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={inlineNewTeamName}
+                      onChange={(e) => setInlineNewTeamName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer shrink-0"
+                  >
+                    Guardar Jugador
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-1">
+                      Nombre del Equipo *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={inlineNewTeamName}
+                      onChange={(e) => setInlineNewTeamName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {inlineNewTeamPlayers.map((pVal, idx) => (
+                      <div key={idx}>
+                        <label className="block text-zinc-400 font-semibold mb-1">
+                          Integrante #{idx + 1} *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={pVal}
+                          onChange={(e) => {
+                            const next = [...inlineNewTeamPlayers];
+                            next[idx] = e.target.value;
+                            setInlineNewTeamPlayers(next);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setInlineNewTeamPlayers((prev) => [...prev, ''])}
+                      className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
+                    >
+                      + Agregar otro jugador
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer"
+                    >
+                      Guardar Equipo
+                    </button>
+                  </div>
+                </>
+              )}
+            </form>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(activeChamp.teamDetails ||
+              activeChamp.teams.map((tName, i) => ({
+                id: `fallback-${i}`,
+                name: tName,
+                players: [],
+                paidEntry: true,
+              }))
+            ).map((team, idx) => (
+              <div
+                key={team.id || idx}
+                className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold text-zinc-100 truncate">
+                    #{idx + 1} · {team.name}
+                  </span>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      team.paidEntry !== false
+                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {team.paidEntry !== false ? 'Pagado' : 'Pendiente'}
+                  </span>
+                </div>
+                {!isActiveChampIndividual && team.players && team.players.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {team.players.map((p, pIdx) => (
+                      <span
+                        key={pIdx}
+                        className="text-[11px] px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+                      >
+                        👤 {p}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          APARTADO 4: HISTORIAL PRIVADO Y GANANCIAS DEL NEGOCIO
+         ===================================================================== */}
+      {activeSubView === 'PRIVATE_FINANCES' && (
+        <div className="rounded-3xl bg-zinc-900/95 border border-emerald-500/35 p-5 sm:p-6 shadow-2xl space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+            <div>
+              <h3 className="text-base font-extrabold text-zinc-100 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-emerald-400" />
+                <span>Historial Privado de Campeonatos y Ganancias del Negocio</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Apartado exclusivo para ti: personas que jugaron, modalidad, campeón, valor total recaudado (100%), premio y tu ganancia libre.
+              </p>
+            </div>
           </div>
 
           {(() => {
@@ -1453,28 +2234,28 @@ export const ChampionshipsView: React.FC = () => {
 
             return (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800">
-                    <span className="text-[11px] text-zinc-400 block">
-                      Total Jugado / Recaudado (100%):
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
+                    <span className="text-xs text-zinc-400 block">
+                      Valor Total Jugado / Recaudado (100%):
                     </span>
-                    <span className="text-lg font-extrabold font-mono text-zinc-100">
+                    <span className="text-xl font-extrabold font-mono text-zinc-100 mt-1 block">
                       {formatCurrency(summary.totalGross)}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800">
-                    <span className="text-[11px] text-zinc-400 block">
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
+                    <span className="text-xs text-zinc-400 block">
                       Total Sacado en Premios:
                     </span>
-                    <span className="text-lg font-extrabold font-mono text-amber-400">
+                    <span className="text-xl font-extrabold font-mono text-amber-400 mt-1 block">
                       -{formatCurrency(summary.totalPrizes)}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/35">
-                    <span className="text-[11px] text-emerald-300 font-bold block">
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/35">
+                    <span className="text-xs text-emerald-300 font-bold block">
                       Tu Ganancia Neta Total (Casa):
                     </span>
-                    <span className="text-xl font-extrabold font-mono text-emerald-400">
+                    <span className="text-2xl font-extrabold font-mono text-emerald-400 mt-1 block">
                       +{formatCurrency(summary.totalNetProfit)}
                     </span>
                   </div>
@@ -1484,12 +2265,12 @@ export const ChampionshipsView: React.FC = () => {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-zinc-900 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-400 font-bold">
                       <tr>
-                        <th className="py-3 px-3">Torneo & Qué Jugaron</th>
+                        <th className="py-3 px-4">Campeonato & Qué Jugaron</th>
                         <th className="py-3 px-3">Personas / Equipos que Jugaron</th>
                         <th className="py-3 px-3">Quién Ganó</th>
                         <th className="py-3 px-3 text-right">Valor Jugado (100%)</th>
                         <th className="py-3 px-3 text-right">Premio</th>
-                        <th className="py-3 px-3 text-right text-emerald-400">Tu Ganancia Neta</th>
+                        <th className="py-3 px-4 text-right text-emerald-400">Tu Ganancia Neta</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/70">
@@ -1503,7 +2284,9 @@ export const ChampionshipsView: React.FC = () => {
                         const allPlayersList =
                           roster.length > 0
                             ? roster.map((td) =>
-                                td.players && td.players.length > 0 && td.players.join(', ') !== td.name
+                                td.players &&
+                                td.players.length > 0 &&
+                                td.players.join(', ') !== td.name
                                   ? `${td.name} (${td.players.join(', ')})`
                                   : td.name
                               )
@@ -1511,16 +2294,16 @@ export const ChampionshipsView: React.FC = () => {
 
                         return (
                           <tr key={c.id} className="hover:bg-zinc-900/50">
-                            <td className="py-3 px-3 align-top">
+                            <td className="py-3.5 px-4 align-top">
                               <div className="font-bold text-zinc-100">{c.name}</div>
-                              <div className="text-[10px] text-amber-400 font-semibold mt-0.5">
+                              <div className="text-[11px] text-amber-400 font-semibold mt-0.5">
                                 {modeInfo.label} · {getFormatLabel(c.teamFormat || 'PAREJAS', c.playersPerTeam)}
                               </div>
                               <div className="text-[10px] text-zinc-500">
                                 Meta: {c.targetScore} {modeInfo.unit} · {c.createdAt}
                               </div>
                             </td>
-                            <td className="py-3 px-3 align-top max-w-xs">
+                            <td className="py-3.5 px-3 align-top max-w-sm">
                               <div className="text-[11px] font-bold text-zinc-300 mb-1">
                                 {count} inscritos ({formatCurrency(c.entryFee)} c/u):
                               </div>
@@ -1530,12 +2313,12 @@ export const ChampionshipsView: React.FC = () => {
                                     key={idx}
                                     className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300"
                                   >
-                                    {p}
+                                    👤 {p}
                                   </span>
                                 ))}
                               </div>
                             </td>
-                            <td className="py-3 px-3 align-top">
+                            <td className="py-3.5 px-3 align-top">
                               {c.champion ? (
                                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-extrabold text-[11px] inline-flex items-center gap-1">
                                   🏆 {c.champion}
@@ -1546,14 +2329,14 @@ export const ChampionshipsView: React.FC = () => {
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3 align-top text-right font-mono font-bold text-zinc-100">
+                            <td className="py-3.5 px-3 align-top text-right font-mono font-bold text-zinc-100">
                               {formatCurrency(gross)}
                             </td>
-                            <td className="py-3 px-3 align-top text-right font-mono font-bold text-amber-400">
+                            <td className="py-3.5 px-3 align-top text-right font-mono font-bold text-amber-400">
                               -{formatCurrency(prize)}
                             </td>
                             <td
-                              className={`py-3 px-3 align-top text-right font-mono font-extrabold text-sm ${
+                              className={`py-3.5 px-4 align-top text-right font-mono font-extrabold text-sm ${
                                 net >= 0 ? 'text-emerald-400' : 'text-rose-400'
                               }`}
                             >
@@ -1572,873 +2355,18 @@ export const ChampionshipsView: React.FC = () => {
         </div>
       )}
 
-      {/* COLLAPSIBLE OFFICIAL RULES & SCORING REFERENCE */}
-      {showRulesModal && (
-        <div className="rounded-3xl bg-zinc-900/95 border border-amber-500/35 p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-            <h3 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-amber-400" />
-              <span>Reglamento Oficial en Colombia: Tejo Tradicional, Tejo A Balazos y Bolirana</span>
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowRulesModal(false)}
-              className="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-lg bg-zinc-800 cursor-pointer"
-            >
-              Cerrar
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-4 rounded-2xl bg-zinc-950 border border-rose-500/30 space-y-2">
-              <div className="font-bold text-rose-400 uppercase tracking-wider">
-                1. Tejo Tradicional (FEDETEJO)
-              </div>
-              <ul className="space-y-1.5 text-zinc-300">
-                <li>• <strong>Mano (+1 pto):</strong> Tejo más cercano al bocín al cerrar la ronda (si no hubo mecha, embocinada ni moñona).</li>
-                <li>• <strong>Mecha / Balazo (+3 ptos):</strong> Explosión válida del triángulo de pólvora en el bocín.</li>
-                <li>• <strong>Embocinada (+6 ptos):</strong> El tejo cae y queda fijo dentro del bocín.</li>
-                <li>• <strong>Moñona (+9 ptos):</strong> Embocinada + explosión de mecha en el mismo tiro.</li>
-                <li>• <strong>Meta del Chico:</strong> Oficialmente a <strong>27 puntos</strong> (o 21 en minitejo), pero aquí puedes fijar <strong>cualquier puntaje meta</strong>.</li>
-              </ul>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-zinc-950 border border-amber-500/30 space-y-2">
-              <div className="font-bold text-amber-400 uppercase tracking-wider">
-                2. Tejo "A Balazos" (Mecha Limpia)
-              </div>
-              <ul className="space-y-1.5 text-zinc-300">
-                <li>• <strong>Solo valen las explosiones:</strong> Ideal para torneos relámpago de bar y apuestas rápidas; no se cuenta la "mano".</li>
-                <li>• <strong>Balazo / Mecha (+1 balazo):</strong> Cada mecha reventada limpiamente suma 1 balazo al marcador.</li>
-                <li>• <strong>Moñona Especial (+2 balazos):</strong> Embocinar reventando mecha suma 2 balazos directos.</li>
-                <li>• <strong>Meta Libre:</strong> Se pacta a <strong>3, 5, 7 o 10 balazos</strong> (ajustable al instante en el panel).</li>
-              </ul>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-zinc-950 border border-emerald-500/30 space-y-2">
-              <div className="font-bold text-emerald-400 uppercase tracking-wider">
-                3. Bolirana / Rana Colombiana
-              </div>
-              <ul className="space-y-1.5 text-zinc-300">
-                <li>• <strong>6 balines por turno:</strong> Lanzamiento uno por uno a 3.50m sin pisar la línea (pisar línea anula el tiro).</li>
-                <li>• <strong>Rana Principal:</strong> <strong>+500 ptos</strong> (tiro de máxima jerarquía y criterio de desempate).</li>
-                <li>• <strong>Ranita / Botella:</strong> <strong>+250 ptos</strong> · <strong>Molino:</strong> <strong>+150 ptos</strong>.</li>
-                <li>• <strong>Puentes y Base:</strong> <strong>+100, +50 y +20 ptos</strong> · <strong>Blanqueada:</strong> 0 ptos.</li>
-                <li>• <strong>Meta Libre:</strong> Ajustable a <strong>1.500, 3.000, 5.000 ptos</strong> o el valor que definas.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QUICK CUSTOMIZATION BAR: CHANGE MODE OR TARGET SCORE AT ANY TIME */}
-      <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-4 sm:p-5 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Left: Mode Switcher */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            Modalidad de Juego del Torneo Activo:
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleSwitchChampMode('TEJO_PUNTOS')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-all ${
-                activeChamp.mode === 'TEJO_PUNTOS'
-                  ? 'bg-rose-500 text-white border-rose-400 shadow-md'
-                  : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-rose-500/40'
-              }`}
-            >
-              <Target className="w-3.5 h-3.5" />
-              <span>Tejo por Puntos (1 / 3 / 6 / 9)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSwitchChampMode('TEJO_BALAZOS')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-all ${
-                activeChamp.mode === 'TEJO_BALAZOS'
-                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md'
-                  : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-amber-500/40'
-              }`}
-            >
-              <Flame className="w-3.5 h-3.5" />
-              <span>Tejo "A Balazos" (Solo Mechas)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSwitchChampMode('BOLIRANA')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-all ${
-                activeChamp.mode === 'BOLIRANA'
-                  ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md'
-                  : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-emerald-500/40'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Bolirana / Rana</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Right: Custom Target Score Input + Quick Presets */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
-            Puntaje o Meta para Ganar el Partido (Personalizable):
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-amber-500/40 rounded-xl px-3 py-1.5">
-              <input
-                type="number"
-                min={1}
-                value={editingTargetScore}
-                onChange={(e) => {
-                  setEditingTargetScore(e.target.value);
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val > 0) {
-                    handleUpdateTargetScore(val);
-                  }
-                }}
-                className="w-20 bg-transparent text-sm font-extrabold text-amber-300 focus:outline-none font-mono text-center"
-              />
-              <span className="text-xs font-bold text-zinc-400">{badge.unit}</span>
-            </div>
-
-            {activeChamp.mode === 'TEJO_PUNTOS' &&
-              [15, 21, 27, 35].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => handleUpdateTargetScore(preset)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border cursor-pointer ${
-                    activeChamp.targetScore === preset
-                      ? 'bg-amber-500/25 border-amber-400 text-amber-300'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  {preset} ptos
-                </button>
-              ))}
-
-            {activeChamp.mode === 'TEJO_BALAZOS' &&
-              [3, 5, 7, 10, 12].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => handleUpdateTargetScore(preset)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border cursor-pointer ${
-                    activeChamp.targetScore === preset
-                      ? 'bg-amber-500/25 border-amber-400 text-amber-300'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  {preset} balazos
-                </button>
-              ))}
-
-            {activeChamp.mode === 'BOLIRANA' &&
-              [1500, 2500, 3000, 5000].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => handleUpdateTargetScore(preset)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border cursor-pointer ${
-                    activeChamp.targetScore === preset
-                      ? 'bg-amber-500/25 border-amber-400 text-amber-300'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  {preset} ptos
-                </button>
-              ))}
-          </div>
-        </div>
-      </div>
-
-      {/* CHAMPION BANNER IF TOURNAMENT IS FINISHED */}
-      {activeChamp.champion && (
-        <div className="rounded-3xl bg-gradient-to-r from-amber-500/25 via-amber-500/15 to-zinc-900 border border-amber-400/60 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-400 text-zinc-950 flex items-center justify-center shadow-lg">
-              <Award className="w-7 h-7" />
-            </div>
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300">
-                ¡Campeón Oficial del Torneo!
-              </span>
-              <h3 className="text-xl font-extrabold text-white">
-                🏆 {activeChamp.champion}
-              </h3>
-              <p className="text-xs text-amber-200/90">
-                Premio acumulado del campeonato: <strong>{formatCurrency(activeChamp.prizePool)}</strong>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MAIN GRID: LEFT LIVE MATCH SCOREBOARD (Col 7) + RIGHT BRACKET, TEAMS & LOG (Col 5) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: LIVE SCOREBOARD & 1-CLICK PLAY BUTTONS */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-5">
-            {/* Match Header */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase">
-                    {activeMatch.roundName}
-                  </span>
-                  {activeMatch.canchaAsignada && (
-                    <span className="text-xs text-zinc-400 font-medium">
-                      · {activeMatch.canchaAsignada}
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-base sm:text-lg font-extrabold text-zinc-100 mt-1">
-                  Tablero Marcador en Vivo — Meta: {activeChamp.targetScore} {badge.unit}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleUndoLastEvent}
-                  disabled={activeMatch.events.length === 0}
-                  className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  title="Deshacer última jugada"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Deshacer</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetMatch}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-semibold cursor-pointer"
-                >
-                  Reiniciar Chico
-                </button>
-              </div>
-            </div>
-
-            {/* TWO TEAMS SCORE CARDS & SCORING CONTROLS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {(['A', 'B'] as const).map((side) => {
-                const isA = side === 'A';
-                const teamName = isA ? activeMatch.teamA : activeMatch.teamB;
-                const teamInfo = isA ? teamADetails : teamBDetails;
-                const playersList = teamInfo?.players || [];
-                const activeShooter = isA ? selectedPlayerA : selectedPlayerB;
-                const setActiveShooter = isA ? setSelectedPlayerA : setSelectedPlayerB;
-                const score = isA ? activeMatch.scoreA : activeMatch.scoreB;
-                const progress = isA ? progressA : progressB;
-                const balazosCount = isA
-                  ? activeMatch.ranasOrBalazosA
-                  : activeMatch.ranasOrBalazosB;
-                const mononasCount = isA ? activeMatch.mononasA : activeMatch.mononasB;
-                const isWinner = activeMatch.winner === teamName;
-                const customInput = isA ? customPointsInputA : customPointsInputB;
-                const setCustomInput = isA ? setCustomPointsInputA : setCustomPointsInputB;
-
-                return (
-                  <div
-                    key={side}
-                    className={`rounded-2xl p-4 border transition-all space-y-3.5 ${
-                      isWinner
-                        ? 'bg-emerald-500/15 border-emerald-400 shadow-lg shadow-emerald-500/10'
-                        : 'bg-zinc-950/90 border-zinc-800'
-                    }`}
-                  >
-                    {/* Team Name & Big Digital Score */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                          Equipo {side}
-                        </span>
-                        <h4 className="text-base sm:text-lg font-extrabold text-zinc-100 truncate">
-                          {teamName}
-                        </h4>
-                        {isWinner && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-400 mt-0.5">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            ¡Ganador del Chico!
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <div className="text-3xl sm:text-4xl font-extrabold font-mono text-amber-400 tabular-nums leading-none">
-                          {score}
-                        </div>
-                        <span className="text-[10px] text-zinc-400 font-mono">
-                          de {activeChamp.targetScore} {badge.unit}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Players Roster Chips (Select who is throwing to log their name!) */}
-                    {playersList.length > 0 && (
-                      <div className="space-y-1 pt-1 border-t border-zinc-900">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
-                          Jugadores del equipo (toca quién lanza):
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {playersList.map((pName, idx) => {
-                            const isSelectedShooter = activeShooter === pName;
-                            return (
-                              <button
-                                key={`${pName}-${idx}`}
-                                type="button"
-                                onClick={() => setActiveShooter(pName)}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-all flex items-center gap-1 ${
-                                  isSelectedShooter
-                                    ? 'bg-amber-500/25 border-amber-400 text-amber-200'
-                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                                }`}
-                              >
-                                <UserCheck className="w-3 h-3" />
-                                <span>{pName}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Progress bar to Target Score */}
-                    <div className="w-full h-2.5 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-
-                    {/* Sub-counters (Balazos / Ranas / Moñonas) */}
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono pt-1 border-t border-zinc-900">
-                      <span>
-                        {activeChamp.mode === 'BOLIRANA' ? '🐸 Ranas:' : '💥 Balazos/Mechas:'}{' '}
-                        <strong className="text-zinc-200">{balazosCount}</strong>
-                      </span>
-                      {activeChamp.mode !== 'BOLIRANA' && (
-                        <span>
-                          🔥 Moñonas: <strong className="text-amber-300">{mononasCount}</strong>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* MODE-SPECIFIC 1-CLICK SCORING BUTTONS */}
-                    {activeChamp.mode === 'TEJO_PUNTOS' && (
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 1, '✋ Mano (+1 pto)')
-                          }
-                          className="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs font-bold flex flex-col items-center cursor-pointer active:scale-95 transition-all"
-                        >
-                          <span>✋ Mano</span>
-                          <span className="text-amber-400 font-mono text-sm font-extrabold">
-                            +1 pto
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 3, '💥 Mecha / Balazo (+3 ptos)', {
-                              isBalazoOrRana: true,
-                            })
-                          }
-                          className="p-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-200 text-xs font-bold flex flex-col items-center cursor-pointer active:scale-95 transition-all"
-                        >
-                          <span>💥 Mecha / Balazo</span>
-                          <span className="text-amber-400 font-mono text-sm font-extrabold">
-                            +3 ptos
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 6, '🎯 Embocinada (+6 ptos)')
-                          }
-                          className="p-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-200 text-xs font-bold flex flex-col items-center cursor-pointer active:scale-95 transition-all"
-                        >
-                          <span>🎯 Embocinada</span>
-                          <span className="text-sky-400 font-mono text-sm font-extrabold">
-                            +6 ptos
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 9, '🔥 ¡MOÑONA! (+9 ptos)', {
-                              isBalazoOrRana: true,
-                              isMonona: true,
-                            })
-                          }
-                          className="p-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 text-xs font-bold flex flex-col items-center cursor-pointer active:scale-95 transition-all"
-                        >
-                          <span>🔥 ¡Moñona!</span>
-                          <span className="text-rose-400 font-mono text-sm font-extrabold">
-                            +9 ptos
-                          </span>
-                        </button>
-                      </div>
-                    )}
-
-                    {activeChamp.mode === 'TEJO_BALAZOS' && (
-                      <div className="space-y-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(
-                              side,
-                              1,
-                              '💥 ¡Balazo! (Mecha Explotada)',
-                              { isBalazoOrRana: true }
-                            )
-                          }
-                          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-zinc-950 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all shadow-lg shadow-amber-500/20"
-                        >
-                          <Flame className="w-4 h-4" />
-                          <span>💥 ¡BALAZO! (+1 Mecha)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(
-                              side,
-                              2,
-                              '🔥 ¡Moñona en Balazos! (+2 Balazos)',
-                              { isBalazoOrRana: true, isMonona: true }
-                            )
-                          }
-                          className="w-full py-2.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-                        >
-                          <span>🔥 Moñona (Embocinada + Mecha): +2 Balazos</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {activeChamp.mode === 'BOLIRANA' && (
-                      <div className="grid grid-cols-2 gap-1.5 pt-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 500, '🐸 ¡Rana Principal! (+500)', {
-                              isBalazoOrRana: true,
-                            })
-                          }
-                          className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-200 text-xs font-bold flex flex-col items-center cursor-pointer"
-                        >
-                          <span>🐸 Rana Mayor</span>
-                          <span className="text-emerald-400 font-mono font-extrabold">+500</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 250, '🍾 Ranita / Botella (+250)')
-                          }
-                          className="p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-200 text-xs font-bold flex flex-col items-center cursor-pointer"
-                        >
-                          <span>🍾 Ranita / Botella</span>
-                          <span className="text-amber-400 font-mono font-extrabold">+250</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 150, '🎡 Molino (+150)')
-                          }
-                          className="p-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-200 text-xs font-bold flex flex-col items-center cursor-pointer"
-                        >
-                          <span>🎡 Molino</span>
-                          <span className="text-sky-400 font-mono font-extrabold">+150</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 100, '🌉 Puente (+100)')
-                          }
-                          className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-bold flex flex-col items-center cursor-pointer"
-                        >
-                          <span>🌉 Puente</span>
-                          <span className="text-zinc-300 font-mono font-extrabold">+100</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 50, '⭕ Orificio Lateral (+50)')
-                          }
-                          className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold flex flex-col items-center cursor-pointer"
-                        >
-                          <span>⭕ Lateral</span>
-                          <span className="text-zinc-400 font-mono font-extrabold">+50</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddScore(side, 20, '⚪ Hueco Base (+20)')
-                          }
-                          className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold flex flex-col items-center cursor-pointer"
-                        >
-                          <span>⚪ Base</span>
-                          <span className="text-zinc-400 font-mono font-extrabold">+20</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Free Custom Score Input for any custom rule or bonus */}
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const pts = parseInt(customInput, 10);
-                        if (!isNaN(pts) && pts > 0) {
-                          handleAddScore(side, pts, `➕ Puntaje Manual (+${pts})`);
-                          setCustomInput('');
-                        }
-                      }}
-                      className="flex items-center gap-1.5 pt-2 border-t border-zinc-900"
-                    >
-                      <input
-                        type="number"
-                        min={1}
-                        value={customInput}
-                        onChange={(e) => setCustomInput(e.target.value)}
-                        placeholder={`Otro valor (+${badge.unit})...`}
-                        className="w-full px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500 font-mono"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!customInput.trim()}
-                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 disabled:opacity-40 text-zinc-200 text-xs font-bold cursor-pointer shrink-0 transition-colors"
-                      >
-                        Sumar
-                      </button>
-                    </form>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* REGISTERED TEAMS & INDIVIDUAL PLAYERS ROSTER CARD */}
-          {(() => {
-            const isIndividualChamp =
-              activeChamp.teamFormat === 'INDIVIDUAL' || activeChamp.playersPerTeam === 1;
-            return (
-              <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 shadow-2xl space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-zinc-800">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-sm font-bold text-zinc-100">
-                      {isIndividualChamp
-                        ? `Jugadores Inscritos (${activeChamp.teamDetails?.length || activeChamp.teams.length})`
-                        : `Equipos y Jugadores Inscritos (${activeChamp.teamDetails?.length || activeChamp.teams.length})`}
-                    </h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
-                      {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInlineNewTeamPlayers(
-                        Array.from({ length: activeChamp.playersPerTeam || 2 }, () => '')
-                      );
-                      setShowInlineAddTeam((prev) => !prev);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>
-                      {isIndividualChamp ? '+ Inscribir Jugador' : '+ Inscribir Equipo / Jugadores'}
-                    </span>
-                  </button>
-                </div>
-
-                {showInlineAddTeam && (
-                  <form
-                    onSubmit={handleInlineAddTeamSubmit}
-                    className="p-4 rounded-2xl bg-zinc-950 border border-amber-500/40 space-y-3 text-xs animate-in fade-in"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-300">
-                        {isIndividualChamp
-                          ? `Inscribir Nuevo Jugador en ${activeChamp.name}`
-                          : `Inscribir Nuevo Equipo en ${activeChamp.name}`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowInlineAddTeam(false)}
-                        className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {isIndividualChamp ? (
-                      <div className="flex items-end gap-2">
-                        <div className="flex-1">
-                          <label className="block text-zinc-400 font-semibold mb-1">
-                            Nombre del Jugador *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={inlineNewTeamName}
-                            onChange={(e) => setInlineNewTeamName(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer shrink-0"
-                        >
-                          Guardar Jugador
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="block text-zinc-400 font-semibold mb-1">
-                            Nombre del Equipo *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={inlineNewTeamName}
-                            onChange={(e) => setInlineNewTeamName(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {inlineNewTeamPlayers.map((pVal, idx) => (
-                            <div key={idx}>
-                              <label className="block text-zinc-400 font-semibold mb-1">
-                                Nombre Jugador {idx + 1} *
-                              </label>
-                              <input
-                                type="text"
-                                required
-                                value={pVal}
-                                onChange={(e) => {
-                                  const next = [...inlineNewTeamPlayers];
-                                  next[idx] = e.target.value;
-                                  setInlineNewTeamPlayers(next);
-                                }}
-                                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setInlineNewTeamPlayers((prev) => [...prev, ''])}
-                            className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
-                          >
-                            + Agregar otro jugador a este equipo
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer"
-                          >
-                            Guardar Equipo
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </form>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {(activeChamp.teamDetails ||
-                    activeChamp.teams.map((tName, i) => ({
-                      id: `fallback-${i}`,
-                      name: tName,
-                      players: [],
-                      paidEntry: true,
-                    }))
-                  ).map((team, idx) => (
-                    <div
-                      key={team.id || idx}
-                      className="p-3 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-extrabold text-zinc-100 truncate">
-                          {idx + 1}. {team.name}
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                            team.paidEntry !== false
-                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                          }`}
-                        >
-                          {team.paidEntry !== false ? 'Inscrito' : 'Pendiente Pago'}
-                        </span>
-                      </div>
-                      {!isIndividualChamp && team.players && team.players.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-0.5">
-                          {team.players.map((p, pIdx) => (
-                            <span
-                              key={pIdx}
-                              className="text-[11px] px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
-                            >
-                              👤 {p}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* RIGHT COLUMN: TOURNAMENT BRACKET (LLAVES) & PLAY-BY-PLAY LOG */}
-        <div className="lg:col-span-5 space-y-4">
-          {/* Tournament Matches / Bracket */}
-          <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 shadow-2xl space-y-3.5">
-            <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-bold text-zinc-100">
-                  Llaves y Partidos del Torneo ({activeChamp.matches.length})
-                </h3>
-              </div>
-              <span className="text-[11px] text-amber-400 font-mono font-bold">
-                Premio: {formatCurrency(activeChamp.prizePool)}
-              </span>
-            </div>
-
-            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-              {activeChamp.matches.map((m) => {
-                const isSelected = m.id === activeMatch.id;
-                return (
-                  <div
-                    key={m.id}
-                    onClick={() => setSelectedMatchId(m.id)}
-                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all space-y-2 ${
-                      isSelected
-                        ? 'bg-amber-500/15 border-amber-500/60 shadow-md'
-                        : 'bg-zinc-950/80 border-zinc-800 hover:border-amber-500/35'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-bold uppercase tracking-wider text-amber-400">
-                        {m.roundName}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          m.status === 'FINALIZADO'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : m.status === 'EN_JUEGO'
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                            : 'bg-zinc-800 text-zinc-400'
-                        }`}
-                      >
-                        {m.status === 'FINALIZADO'
-                          ? `Ganador: ${m.winner}`
-                          : m.status === 'EN_JUEGO'
-                          ? 'En Juego'
-                          : 'Pendiente'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <span
-                        className={`font-bold truncate ${
-                          m.winner === m.teamA ? 'text-emerald-400' : 'text-zinc-100'
-                        }`}
-                      >
-                        {m.teamA}
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 font-mono font-extrabold text-amber-300 shrink-0">
-                        {m.scoreA} - {m.scoreB}
-                      </span>
-                      <span
-                        className={`font-bold truncate text-right ${
-                          m.winner === m.teamB ? 'text-emerald-400' : 'text-zinc-100'
-                        }`}
-                      >
-                        {m.teamB}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Play-by-Play History of the Active Match */}
-          <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 shadow-2xl space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-                Historial de Jugadas ({activeMatch.events.length})
-              </span>
-              <span className="text-[11px] text-zinc-500">{activeMatch.roundName}</span>
-            </div>
-
-            {activeMatch.events.length === 0 ? (
-              <div className="py-6 text-center text-xs text-zinc-500">
-                Aún no se han registrado jugadas en este partido. Usa los botones del tablero para anotar.
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {activeMatch.events.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-2 text-xs"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold text-zinc-100 truncate">
-                        {ev.teamName}
-                        {ev.playerName && (
-                          <span className="text-amber-400 font-semibold">
-                            {' '}
-                            · 👤 {ev.playerName}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-zinc-400 truncate">{ev.label}</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-extrabold">
-                        +{ev.points}
-                      </span>
-                      <div className="text-[10px] text-zinc-500 mt-0.5">{ev.timestamp}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* MODAL TO CREATE A NEW CHAMPIONSHIP (SUPER CUSTOMIZABLE: INDIVIDUAL, PAREJAS, TRIOS, CUARTETOS, PLAYERS) */}
+      {/* =====================================================================
+          MODAL: CONFIGURAR NUEVO CAMPEONATO PERSONALIZADO (CLEAN & ORGANIZED)
+         ===================================================================== */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4">
           <form
             onSubmit={handleCreateChampionship}
-            className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-3xl max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150"
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150"
           >
+            {/* Sticky Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800 sticky top-0 bg-zinc-900 z-10">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                   <Trophy className="w-5 h-5" />
                 </div>
@@ -2447,285 +2375,349 @@ export const ChampionshipsView: React.FC = () => {
                     Configurar Nuevo Campeonato Personalizado
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    Define modalidad, formato (Individual, Parejas, Tríos, Equipos), meta para ganar y nombres de cada jugador
+                    Configura modalidad, formato, cálculo automático de tu ganancia y participantes
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 bg-zinc-800 cursor-pointer"
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-200 bg-zinc-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              {/* Step 1: Name & Game Discipline */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="md:col-span-2">
-                  <label className="block font-bold text-zinc-200 mb-1">
-                    1. Nombre del Campeonato *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newChampName}
-                    onChange={(e) => setNewChampName(e.target.value)}
-                    placeholder="Ej. Gran Torneo Relámpago de Viernes · Parejas / Tríos"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+            {(() => {
+              const isIndividualMode =
+                newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1;
+              const unitSingular = isIndividualMode
+                ? 'Jugador'
+                : newTeamFormat === 'PAREJAS'
+                ? 'Pareja'
+                : newTeamFormat === 'TRIOS'
+                ? 'Trío'
+                : 'Equipo';
+              const unitPlural = isIndividualMode
+                ? 'Jugadores'
+                : newTeamFormat === 'PAREJAS'
+                ? 'Parejas'
+                : newTeamFormat === 'TRIOS'
+                ? 'Tríos'
+                : 'Equipos';
 
-                <div className="md:col-span-2">
-                  <label className="block font-bold text-zinc-200 mb-1.5">
-                    2. Juego y Sistema de Puntaje *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewChampMode('TEJO_PUNTOS');
-                        setNewChampTargetInput('27');
-                      }}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                        newChampMode === 'TEJO_PUNTOS'
-                          ? 'bg-rose-500/20 border-rose-500 text-rose-200 font-bold'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-                      }`}
-                    >
-                      <div>🎯 Tejo por Puntos</div>
-                      <div className="text-[10px] opacity-80 mt-0.5">
-                        Mano 1, Mecha 3, Embocinada 6, Moñona 9
+              const entryFeeNum = parseCopCurrencyInput(newChampEntryFeeInput);
+              const prizePoolNum = parseCopCurrencyInput(newChampPrizePoolInput);
+              const participantsCount = draftTeams.length;
+              const totalGrossPool = participantsCount * entryFeeNum;
+              const netHouseProfit = totalGrossPool - prizePoolNum;
+              const houseMarginPct =
+                totalGrossPool > 0
+                  ? Math.round((netHouseProfit / totalGrossPool) * 100)
+                  : 0;
+              const prizePct =
+                totalGrossPool > 0
+                  ? Math.round((prizePoolNum / totalGrossPool) * 100)
+                  : 0;
+
+              return (
+                <div className="space-y-5 text-xs">
+                  {/* TOP FINANCIAL SUMMARY STRIP (ALWAYS VISIBLE AT A GLANCE) */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-zinc-950 to-zinc-950 border border-emerald-500/40">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                        <CircleDollarSign className="w-4 h-4" />
+                        <span>Resumen Financiero del Torneo (Privado para Ti)</span>
+                      </span>
+                      <span className="text-[11px] font-mono text-zinc-300 bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800">
+                        {participantsCount} {unitPlural.toLowerCase()} × {formatCurrency(entryFeeNum)} ={' '}
+                        <strong className="text-white">{formatCurrency(totalGrossPool)}</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="p-3 rounded-xl bg-zinc-900/95 border border-zinc-800">
+                        <span className="text-[11px] text-zinc-400 block">
+                          1. Valor Total Jugado (100% Recaudo):
+                        </span>
+                        <span className="text-lg sm:text-xl font-black font-mono text-zinc-100 mt-0.5 block">
+                          {formatCurrency(totalGrossPool)}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          {participantsCount} {unitPlural.toLowerCase()} inscritos
+                        </span>
                       </div>
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewChampMode('TEJO_BALAZOS');
-                        setNewChampTargetInput('5');
-                      }}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                        newChampMode === 'TEJO_BALAZOS'
-                          ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-                      }`}
-                    >
-                      <div>💥 Tejo A Balazos</div>
-                      <div className="text-[10px] opacity-80 mt-0.5">
-                        Solo Mechas Explotadas (+1 / Moñona +2)
+                      <div className="p-3 rounded-xl bg-zinc-900/95 border border-zinc-800">
+                        <span className="text-[11px] text-zinc-400 block">
+                          2. (-) Premio al Campeón ({prizePct}%):
+                        </span>
+                        <span className="text-lg sm:text-xl font-black font-mono text-amber-400 mt-0.5 block">
+                          -{formatCurrency(prizePoolNum)}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          Se entrega al ganador
+                        </span>
                       </div>
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewChampMode('BOLIRANA');
-                        setNewChampTargetInput('3000');
-                      }}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                        newChampMode === 'BOLIRANA'
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200 font-bold'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-                      }`}
-                    >
-                      <div>🐸 Bolirana / Rana</div>
-                      <div className="text-[10px] opacity-80 mt-0.5">
-                        Rana 500, Botella 250, Molino 150, Puentes
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 2: Team Size Format (Individual, Parejas, Tríos, Cuartetos, Libre) */}
-              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
-                <label className="block font-bold text-amber-400">
-                  3. ¿Cómo se va a jugar? (Cantidad de Jugadores por Equipo) *
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {[
-                    { id: 'INDIVIDUAL' as const, label: 'Individual', sub: '1 vs 1 (1 jugador)' },
-                    { id: 'PAREJAS' as const, label: 'En Parejas', sub: '2 vs 2 (Duplas)' },
-                    { id: 'TRIOS' as const, label: 'En Tríos', sub: '3 vs 3 (Ternas)' },
-                    { id: 'CUARTETOS' as const, label: 'Equipos de 4', sub: '4 vs 4 jugadores' },
-                    { id: 'LIBRE' as const, label: 'Personalizado', sub: 'Tú eliges cuántos' },
-                  ].map((fmt) => (
-                    <button
-                      key={fmt.id}
-                      type="button"
-                      onClick={() => handleSelectTeamFormat(fmt.id)}
-                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
-                        newTeamFormat === fmt.id
-                          ? 'bg-amber-500 text-zinc-950 border-amber-400 font-extrabold shadow-md'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-amber-500/40'
-                      }`}
-                    >
-                      <div className="text-xs">{fmt.label}</div>
                       <div
-                        className={`text-[10px] mt-0.5 ${
-                          newTeamFormat === fmt.id ? 'text-zinc-900' : 'text-zinc-500'
+                        className={`p-3 rounded-xl border ${
+                          netHouseProfit >= 0
+                            ? 'bg-emerald-500/20 border-emerald-500/50'
+                            : 'bg-rose-500/20 border-rose-500/50'
                         }`}
                       >
-                        {fmt.sub}
+                        <span className="text-[11px] text-zinc-100 font-extrabold block">
+                          3. (=) Tu Ganancia Neta ({houseMarginPct}%):
+                        </span>
+                        <span
+                          className={`text-xl sm:text-2xl font-black font-mono mt-0.5 block ${
+                            netHouseProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                        >
+                          {netHouseProfit >= 0 ? '+' : ''}
+                          {formatCurrency(netHouseProfit)}
+                        </span>
+                        <span className="text-[10px] text-zinc-200">
+                          Te queda libre (oculto del tablero público)
+                        </span>
                       </div>
-                    </button>
-                  ))}
-                </div>
-
-                {newTeamFormat === 'LIBRE' && (
-                  <div className="flex flex-wrap items-center gap-3 pt-1">
-                    <span className="text-zinc-300 font-semibold">
-                      Jugadores por equipo:
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = Math.max(1, newPlayersPerTeam - 1);
-                          setNewPlayersPerTeamInput(String(next));
-                          applyPlayersCountToDraftTeams(next);
-                        }}
-                        className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold cursor-pointer"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={newPlayersPerTeamInput}
-                        onChange={(e) => handleCustomPlayersInputChange(e.target.value)}
-                        onBlur={() => {
-                          if (!newPlayersPerTeamInput.trim()) {
-                            setNewPlayersPerTeamInput(String(newPlayersPerTeam));
-                          }
-                        }}
-                        className="w-20 px-3 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-amber-300 font-mono font-bold text-center focus:outline-none focus:border-amber-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = Math.min(20, newPlayersPerTeam + 1);
-                          setNewPlayersPerTeamInput(String(next));
-                          applyPlayersCountToDraftTeams(next);
-                        }}
-                        className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold cursor-pointer"
-                      >
-                        +
-                      </button>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Step 3: Target Score, Total Participants, Entry Fee, Prize Pool & Live Profit Summary */}
-              {(() => {
-                const isInd = newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1;
-                const unitLabelPlural = isInd
-                  ? 'Jugadores'
-                  : newTeamFormat === 'PAREJAS'
-                  ? 'Parejas'
-                  : newTeamFormat === 'TRIOS'
-                  ? 'Tríos'
-                  : 'Equipos';
-                const unitLabelSingular = isInd
-                  ? 'Jugador'
-                  : newTeamFormat === 'PAREJAS'
-                  ? 'Pareja'
-                  : newTeamFormat === 'TRIOS'
-                  ? 'Trío'
-                  : 'Equipo';
-
-                const entryFeeNum = parseCopCurrencyInput(newChampEntryFeeInput);
-                const prizePoolNum = parseCopCurrencyInput(newChampPrizePoolInput);
-                const participantsCount = draftTeams.length;
-                const totalGrossPool = participantsCount * entryFeeNum;
-                const netHouseProfit = totalGrossPool - prizePoolNum;
-                const houseMarginPct =
-                  totalGrossPool > 0
-                    ? Math.round((netHouseProfit / totalGrossPool) * 100)
-                    : 0;
-                const prizePct =
-                  totalGrossPool > 0
-                    ? Math.round((prizePoolNum / totalGrossPool) * 100)
-                    : 0;
-
-                return (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* STEP 1 & 2: NAME, DISCIPLINE & FORMAT */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    {/* Left Column: Name, Mode & Format */}
+                    <div className="lg:col-span-7 space-y-4 p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
                       <div>
-                        <label className="block font-bold text-amber-400 mb-1">
-                          4. Meta para Ganar ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
+                        <label className="block font-bold text-zinc-200 mb-1">
+                          1. Nombre del Campeonato *
                         </label>
                         <input
                           type="text"
-                          inputMode="numeric"
                           required
-                          value={newChampTargetInput}
-                          onChange={(e) =>
-                            setNewChampTargetInput(e.target.value.replace(/\D/g, ''))
-                          }
-                          onBlur={() => {
-                            if (!newChampTargetInput.trim()) {
-                              setNewChampTargetInput(
-                                newChampMode === 'TEJO_BALAZOS'
-                                  ? '5'
-                                  : newChampMode === 'BOLIRANA'
-                                  ? '3000'
-                                  : '27'
-                              );
-                            }
-                          }}
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400"
+                          value={newChampName}
+                          onChange={(e) => setNewChampName(e.target.value)}
+                          placeholder="Ej. Gran Torneo Relámpago de Viernes"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
                         />
                       </div>
 
                       <div>
-                        <label className="block font-bold text-amber-300 mb-1">
-                          Cantidad de {unitLabelPlural} *
+                        <label className="block font-bold text-zinc-200 mb-1.5">
+                          2. Modalidad de Juego *
                         </label>
-                        <div className="flex items-center gap-1.5">
+                        <div className="grid grid-cols-3 gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              handleSetDraftTeamsTotalCount(
-                                String(Math.max(2, draftTeams.length - 1))
-                              )
-                            }
-                            className="w-9 h-9 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold cursor-pointer shrink-0"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={draftTeamsCountInput}
-                            onChange={(e) => handleSetDraftTeamsTotalCount(e.target.value)}
-                            onBlur={() => {
-                              if (!draftTeamsCountInput.trim()) {
-                                setDraftTeamsCountInput(String(draftTeams.length));
-                              }
+                            onClick={() => {
+                              setNewChampMode('TEJO_PUNTOS');
+                              setNewChampTargetInput('27');
                             }}
-                            className="w-full px-2 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold text-center focus:outline-none focus:border-amber-400"
-                          />
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                              newChampMode === 'TEJO_PUNTOS'
+                                ? 'bg-rose-500/20 border-rose-500 text-rose-200 font-bold'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                            }`}
+                          >
+                            <div>🎯 Tejo Puntos</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">Meta 27 ptos</div>
+                          </button>
+
                           <button
                             type="button"
-                            onClick={() =>
-                              handleSetDraftTeamsTotalCount(
-                                String(Math.min(64, draftTeams.length + 1))
-                              )
-                            }
-                            className="w-9 h-9 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold cursor-pointer shrink-0"
+                            onClick={() => {
+                              setNewChampMode('TEJO_BALAZOS');
+                              setNewChampTargetInput('5');
+                            }}
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                              newChampMode === 'TEJO_BALAZOS'
+                                ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                            }`}
                           >
-                            +
+                            <div>💥 A Balazos</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">Solo Mechas</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewChampMode('BOLIRANA');
+                              setNewChampTargetInput('3000');
+                            }}
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                              newChampMode === 'BOLIRANA'
+                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200 font-bold'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                            }`}
+                          >
+                            <div>🐸 Bolirana</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">Rana / Puntos</div>
                           </button>
                         </div>
                       </div>
 
                       <div>
+                        <label className="block font-bold text-amber-400 mb-1.5">
+                          3. Formato de Participación *
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                          {[
+                            { id: 'INDIVIDUAL' as const, label: 'Individual', sub: '1 vs 1' },
+                            { id: 'PAREJAS' as const, label: 'En Parejas', sub: '2 vs 2' },
+                            { id: 'TRIOS' as const, label: 'En Tríos', sub: '3 vs 3' },
+                            { id: 'CUARTETOS' as const, label: 'Equipos 4', sub: '4 vs 4' },
+                            { id: 'LIBRE' as const, label: 'Personalizado', sub: 'Libre' },
+                          ].map((fmt) => (
+                            <button
+                              key={fmt.id}
+                              type="button"
+                              onClick={() => handleSelectTeamFormat(fmt.id)}
+                              className={`p-2 rounded-xl border text-left cursor-pointer transition-all ${
+                                newTeamFormat === fmt.id
+                                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-extrabold'
+                                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-amber-500/40'
+                              }`}
+                            >
+                              <div className="text-xs">{fmt.label}</div>
+                              <div
+                                className={`text-[10px] ${
+                                  newTeamFormat === fmt.id ? 'text-zinc-900' : 'text-zinc-500'
+                                }`}
+                              >
+                                {fmt.sub}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {newTeamFormat === 'LIBRE' && (
+                          <div className="flex items-center gap-3 pt-2.5">
+                            <span className="text-zinc-300 font-semibold">
+                              Jugadores por equipo:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = Math.max(1, newPlayersPerTeam - 1);
+                                  setNewPlayersPerTeamInput(String(next));
+                                  applyPlayersCountToDraftTeams(next);
+                                }}
+                                className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={newPlayersPerTeamInput}
+                                onChange={(e) => handleCustomPlayersInputChange(e.target.value)}
+                                onBlur={() => {
+                                  if (!newPlayersPerTeamInput.trim()) {
+                                    setNewPlayersPerTeamInput(String(newPlayersPerTeam));
+                                  }
+                                }}
+                                className="w-20 px-3 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-amber-300 font-mono font-bold text-center focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = Math.min(20, newPlayersPerTeam + 1);
+                                  setNewPlayersPerTeamInput(String(next));
+                                  applyPlayersCountToDraftTeams(next);
+                                }}
+                                className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Numbers, Entry Fee, Prize & Meta */}
+                    <div className="lg:col-span-5 p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3.5">
+                      <div className="font-bold text-amber-400 text-xs uppercase tracking-wider">
+                        4. Meta, Inscritos, Inscripción y Premio
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-zinc-300 mb-1">
+                            Meta ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            value={newChampTargetInput}
+                            onChange={(e) =>
+                              setNewChampTargetInput(e.target.value.replace(/\D/g, ''))
+                            }
+                            onBlur={() => {
+                              if (!newChampTargetInput.trim()) {
+                                setNewChampTargetInput(
+                                  newChampMode === 'TEJO_BALAZOS'
+                                    ? '5'
+                                    : newChampMode === 'BOLIRANA'
+                                    ? '3000'
+                                    : '27'
+                                );
+                              }
+                            }}
+                            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-amber-500/40 text-amber-300 font-mono font-bold focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-zinc-300 mb-1">
+                            Total {unitPlural} *
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSetDraftTeamsTotalCount(
+                                  String(Math.max(2, draftTeams.length - 1))
+                                )
+                              }
+                              className="w-8 h-9 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold cursor-pointer shrink-0"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={draftTeamsCountInput}
+                              onChange={(e) => handleSetDraftTeamsTotalCount(e.target.value)}
+                              onBlur={() => {
+                                if (!draftTeamsCountInput.trim()) {
+                                  setDraftTeamsCountInput(String(draftTeams.length));
+                                }
+                              }}
+                              className="w-full px-2 py-2 rounded-xl bg-zinc-900 border border-amber-500/40 text-amber-300 font-mono font-bold text-center focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSetDraftTeamsTotalCount(
+                                  String(Math.min(64, draftTeams.length + 1))
+                                )
+                              }
+                              className="w-8 h-9 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold cursor-pointer shrink-0"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
                         <label className="block font-bold text-zinc-300 mb-1">
-                          Inscripción por {unitLabelSingular} ($ COP)
+                          Inscripción por {unitSingular} ($ COP)
                         </label>
                         <input
                           type="text"
@@ -2735,7 +2727,7 @@ export const ChampionshipsView: React.FC = () => {
                             setNewChampEntryFeeInput(formatCopCurrencyInput(e.target.value))
                           }
                           placeholder="$ 0"
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 font-mono font-bold focus:outline-none focus:border-amber-500"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-mono font-bold text-sm focus:outline-none focus:border-amber-500"
                         />
                       </div>
 
@@ -2751,97 +2743,14 @@ export const ChampionshipsView: React.FC = () => {
                             setNewChampPrizePoolInput(formatCopCurrencyInput(e.target.value))
                           }
                           placeholder="$ 0"
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-emerald-400 font-mono font-bold text-sm focus:outline-none focus:border-emerald-500"
                         />
                       </div>
                     </div>
-
-                    {/* LIVE FINANCIAL & PROFIT BREAKDOWN FOR THE OWNER */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-zinc-950 to-zinc-950 border border-emerald-500/35 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
-                          🔒 Resumen Financiero del Torneo (Solo visible para ti al configurar y en Historial)
-                        </span>
-                        <span className="text-[11px] font-mono text-zinc-400">
-                          {participantsCount} {unitLabelPlural.toLowerCase()} ×{' '}
-                          {formatCurrency(entryFeeNum)}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800">
-                          <span className="text-[10px] text-zinc-400 block">
-                            Total Recaudado (100% Jugado):
-                          </span>
-                          <span className="text-base sm:text-lg font-extrabold font-mono text-zinc-100">
-                            {formatCurrency(totalGrossPool)}
-                          </span>
-                          <span className="text-[10px] text-zinc-500 block">
-                            {participantsCount} {unitLabelPlural.toLowerCase()} inscritos
-                          </span>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800">
-                          <span className="text-[10px] text-zinc-400 block">
-                            (-) Premio al Campeón ({prizePct}%):
-                          </span>
-                          <span className="text-base sm:text-lg font-extrabold font-mono text-amber-400">
-                            -{formatCurrency(prizePoolNum)}
-                          </span>
-                          <span className="text-[10px] text-zinc-500 block">
-                            Se entrega al ganador del torneo
-                          </span>
-                        </div>
-
-                        <div
-                          className={`p-3 rounded-xl border ${
-                            netHouseProfit >= 0
-                              ? 'bg-emerald-500/15 border-emerald-500/40'
-                              : 'bg-rose-500/15 border-rose-500/40'
-                          }`}
-                        >
-                          <span className="text-[10px] text-zinc-200 font-bold block">
-                            (=) Tu Ganancia Neta ({houseMarginPct}%):
-                          </span>
-                          <span
-                            className={`text-base sm:text-lg font-extrabold font-mono ${
-                              netHouseProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {netHouseProfit >= 0 ? '+' : ''}
-                            {formatCurrency(netHouseProfit)}
-                          </span>
-                          <span className="text-[10px] text-zinc-300 block">
-                            Lo que te queda libre de ganancia
-                          </span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
-                );
-              })()}
 
-              {/* Step 4: Detailed Team or Individual Players Registration */}
-              {(() => {
-                const isIndividualMode =
-                  newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1;
-                const unitSingular = isIndividualMode
-                  ? 'Jugador'
-                  : newTeamFormat === 'PAREJAS'
-                  ? 'Pareja'
-                  : newTeamFormat === 'TRIOS'
-                  ? 'Trío'
-                  : 'Equipo';
-                const unitPlural = isIndividualMode
-                  ? 'Jugadores'
-                  : newTeamFormat === 'PAREJAS'
-                  ? 'Parejas'
-                  : newTeamFormat === 'TRIOS'
-                  ? 'Tríos'
-                  : 'Equipos';
-
-                return (
-                  <div className="space-y-3 pt-2 border-t border-zinc-800">
+                  {/* STEP 5: CLEAN PARTICIPANTS / TEAMS LIST */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <h4 className="text-xs sm:text-sm font-extrabold text-zinc-100">
@@ -2851,8 +2760,8 @@ export const ChampionshipsView: React.FC = () => {
                         </h4>
                         <p className="text-[11px] text-zinc-400">
                           {isIndividualMode
-                            ? 'Escribe únicamente el nombre de cada jugador que participará en el campeonato individual'
-                            : `Escribe el nombre de cada ${unitSingular.toLowerCase()} y el nombre de cada jugador que lo integra`}
+                            ? 'Escribe directamente el nombre de cada jugador (campos limpios sin texto por defecto)'
+                            : `Escribe el nombre de cada ${unitSingular.toLowerCase()} y sus integrantes`}
                         </p>
                       </div>
 
@@ -2860,11 +2769,10 @@ export const ChampionshipsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleShuffleDraftTeams}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                          title="Sortear orden de llaves al azar"
+                          className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                         >
                           <Shuffle className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Sortear Llaves</span>
+                          <span>Sortear Orden</span>
                         </button>
 
                         <button
@@ -2879,37 +2787,35 @@ export const ChampionshipsView: React.FC = () => {
                     </div>
 
                     {isIndividualMode ? (
-                      /* INDIVIDUAL MODE: Clean list of single player inputs */
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto pr-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[280px] overflow-y-auto pr-1">
                         {draftTeams.map((team, tIdx) => {
                           const currentPlayerName = team.players[0] ?? team.name ?? '';
                           return (
                             <div
                               key={team.id}
-                              className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2"
+                              className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2"
                             >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
                                   👤 Jugador #{tIdx + 1}
                                 </span>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => handleToggleDraftTeamPaid(team.id)}
-                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border ${
+                                    className={`px-2 py-0.5 rounded-full text-[9px] font-bold cursor-pointer border ${
                                       team.paidEntry
                                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
-                                        : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                                        : 'bg-zinc-950 text-zinc-400 border-zinc-700'
                                     }`}
                                   >
-                                    {team.paidEntry ? '✓ Inscripción Pagada' : 'Pago Pendiente'}
+                                    {team.paidEntry ? '✓ Pagado' : 'Pendiente'}
                                   </button>
                                   {draftTeams.length > 2 && (
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveDraftTeam(team.id)}
-                                      className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 cursor-pointer"
-                                      title="Quitar jugador"
+                                      className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -2918,7 +2824,7 @@ export const ChampionshipsView: React.FC = () => {
                               </div>
 
                               <div>
-                                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                                <label className="block text-[10px] font-semibold text-zinc-400 mb-1">
                                   Nombre del Jugador #{tIdx + 1}
                                 </label>
                                 <input
@@ -2934,7 +2840,7 @@ export const ChampionshipsView: React.FC = () => {
                                       )
                                     );
                                   }}
-                                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
+                                  className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
                                 />
                               </div>
                             </div>
@@ -2942,15 +2848,14 @@ export const ChampionshipsView: React.FC = () => {
                         })}
                       </div>
                     ) : (
-                      /* TEAM / PAREJAS / TRIOS MODE: Group Name + Individual Players */
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
                         {draftTeams.map((team, tIdx) => (
                           <div
                             key={team.id}
-                            className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5"
+                            className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2.5"
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
                                 {unitSingular} #{tIdx + 1}
                               </span>
                               <div className="flex items-center gap-1.5">
@@ -2960,17 +2865,16 @@ export const ChampionshipsView: React.FC = () => {
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border ${
                                     team.paidEntry
                                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
-                                      : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                                      : 'bg-zinc-950 text-zinc-400 border-zinc-700'
                                   }`}
                                 >
-                                  {team.paidEntry ? '✓ Inscripción Pagada' : 'Pago Pendiente'}
+                                  {team.paidEntry ? '✓ Pagado' : 'Pendiente'}
                                 </button>
                                 {draftTeams.length > 2 && (
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveDraftTeam(team.id)}
-                                    className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 cursor-pointer"
-                                    title={`Quitar ${unitSingular.toLowerCase()}`}
+                                    className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -2986,12 +2890,11 @@ export const ChampionshipsView: React.FC = () => {
                                 type="text"
                                 value={team.name}
                                 onChange={(e) => handleUpdateDraftTeamName(team.id, e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
+                                className="w-full px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
                               />
                             </div>
 
-                            {/* Individual Players inside this Team */}
-                            <div className="space-y-1.5 pt-1 border-t border-zinc-900">
+                            <div className="space-y-1.5 pt-1 border-t border-zinc-800">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-bold text-amber-400/90">
                                   Integrantes ({team.players.length}):
@@ -3016,14 +2919,13 @@ export const ChampionshipsView: React.FC = () => {
                                     onChange={(e) =>
                                       handleUpdateDraftPlayerName(team.id, pIdx, e.target.value)
                                     }
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800/90 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
                                   />
                                   {team.players.length > 1 && (
                                     <button
                                       type="button"
                                       onClick={() => handleRemovePlayerFromDraftTeam(team.id, pIdx)}
                                       className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
-                                      title="Quitar jugador"
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </button>
@@ -3036,9 +2938,9 @@ export const ChampionshipsView: React.FC = () => {
                       </div>
                     )}
                   </div>
-                );
-              })()}
-            </div>
+                </div>
+              );
+            })()}
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
               <button
