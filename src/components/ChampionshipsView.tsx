@@ -1116,12 +1116,41 @@ export const ChampionshipsView: React.FC = () => {
           : 'Bolirana'
       }`;
 
-    const sanitizedTeamDetails: ChampionshipTeam[] = draftTeams.map((t, idx) => ({
-      id: t.id || `team-${Date.now()}-${idx}`,
-      name: t.name.trim() || `Equipo ${idx + 1}`,
-      players: t.players.map((p, pIdx) => p.trim() || `Jugador ${pIdx + 1}`),
-      paidEntry: t.paidEntry ?? true,
-    }));
+    const isIndividual = newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1;
+
+    const sanitizedTeamDetails: ChampionshipTeam[] = draftTeams.map((t, idx) => {
+      if (isIndividual) {
+        const singlePlayerName =
+          (t.players[0] || t.name || '').trim() || `Jugador ${idx + 1}`;
+        return {
+          id: t.id || `player-${Date.now()}-${idx}`,
+          name: singlePlayerName,
+          players: [singlePlayerName],
+          paidEntry: t.paidEntry ?? true,
+        };
+      }
+
+      const cleanedPlayers = t.players.map(
+        (p, pIdx) => p.trim() || `Jugador ${pIdx + 1}`
+      );
+      const typedPlayersJoined = t.players
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .join(' & ');
+      const fallbackGroupLabel =
+        newTeamFormat === 'PAREJAS'
+          ? `Pareja ${idx + 1}`
+          : newTeamFormat === 'TRIOS'
+          ? `Trío ${idx + 1}`
+          : `Equipo ${idx + 1}`;
+
+      return {
+        id: t.id || `team-${Date.now()}-${idx}`,
+        name: t.name.trim() || typedPlayersJoined || fallbackGroupLabel,
+        players: cleanedPlayers,
+        paidEntry: t.paidEntry ?? true,
+      };
+    });
 
     const teamNames = sanitizedTeamDetails.map((t) => t.name);
     const createdMatches = buildInitialMatches(teamNames);
@@ -1158,10 +1187,37 @@ export const ChampionshipsView: React.FC = () => {
     setDraftTeams(createEmptyTeamDrafts(4, newPlayersPerTeam));
   };
 
-  // Add a new team to the currently active championship
+  // Add a new team or individual player to the currently active championship
   const handleInlineAddTeamSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeChamp || !inlineNewTeamName.trim()) return;
+    if (!activeChamp) return;
+    const isIndividualChamp =
+      activeChamp.teamFormat === 'INDIVIDUAL' || activeChamp.playersPerTeam === 1;
+
+    if (isIndividualChamp) {
+      const singlePlayer = (inlineNewTeamName || inlineNewTeamPlayers[0] || '').trim();
+      if (!singlePlayer) return;
+      const newPlayerObj: ChampionshipTeam = {
+        id: `td-${Date.now()}`,
+        name: singlePlayer,
+        players: [singlePlayer],
+        paidEntry: true,
+      };
+      setChampionships((prev) =>
+        prev.map((c) => {
+          if (c.id !== activeChamp.id) return c;
+          const nextTeamDetails = [...(c.teamDetails || []), newPlayerObj];
+          const nextTeams = nextTeamDetails.map((td) => td.name);
+          return { ...c, teams: nextTeams, teamDetails: nextTeamDetails };
+        })
+      );
+      setInlineNewTeamName('');
+      setInlineNewTeamPlayers(['']);
+      setShowInlineAddTeam(false);
+      return;
+    }
+
+    if (!inlineNewTeamName.trim()) return;
 
     const newTeamObj: ChampionshipTeam = {
       id: `td-${Date.now()}`,
@@ -1869,148 +1925,183 @@ export const ChampionshipsView: React.FC = () => {
           </div>
 
           {/* REGISTERED TEAMS & INDIVIDUAL PLAYERS ROSTER CARD */}
-          <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 shadow-2xl space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-bold text-zinc-100">
-                  Equipos y Jugadores Inscritos ({activeChamp.teamDetails?.length || activeChamp.teams.length})
-                </h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
-                  {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
-                </span>
-              </div>
+          {(() => {
+            const isIndividualChamp =
+              activeChamp.teamFormat === 'INDIVIDUAL' || activeChamp.playersPerTeam === 1;
+            return (
+              <div className="rounded-3xl bg-zinc-900/95 border border-zinc-800 p-5 shadow-2xl space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-sm font-bold text-zinc-100">
+                      {isIndividualChamp
+                        ? `Jugadores Inscritos (${activeChamp.teamDetails?.length || activeChamp.teams.length})`
+                        : `Equipos y Jugadores Inscritos (${activeChamp.teamDetails?.length || activeChamp.teams.length})`}
+                    </h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                      {getFormatLabel(activeChamp.teamFormat || 'PAREJAS', activeChamp.playersPerTeam)}
+                    </span>
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setInlineNewTeamPlayers(
-                    Array.from({ length: activeChamp.playersPerTeam || 2 }, () => '')
-                  );
-                  setShowInlineAddTeam((prev) => !prev);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>+ Inscribir Equipo / Jugadores</span>
-              </button>
-            </div>
-
-            {showInlineAddTeam && (
-              <form
-                onSubmit={handleInlineAddTeamSubmit}
-                className="p-4 rounded-2xl bg-zinc-950 border border-amber-500/40 space-y-3 text-xs animate-in fade-in"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-amber-300">
-                    Inscribir Nuevo Equipo en {activeChamp.name}
-                  </span>
                   <button
                     type="button"
-                    onClick={() => setShowInlineAddTeam(false)}
-                    className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                    onClick={() => {
+                      setInlineNewTeamPlayers(
+                        Array.from({ length: activeChamp.playersPerTeam || 2 }, () => '')
+                      );
+                      setShowInlineAddTeam((prev) => !prev);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <X className="w-4 h-4" />
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>
+                      {isIndividualChamp ? '+ Inscribir Jugador' : '+ Inscribir Equipo / Jugadores'}
+                    </span>
                   </button>
                 </div>
 
-                <div>
-                  <label className="block text-zinc-400 font-semibold mb-1">
-                    Nombre del Equipo *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={inlineNewTeamName}
-                    onChange={(e) => setInlineNewTeamName(e.target.value)}
-                    placeholder="Ej. Los Compadres del Norte"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
-                  />
-                </div>
+                {showInlineAddTeam && (
+                  <form
+                    onSubmit={handleInlineAddTeamSubmit}
+                    className="p-4 rounded-2xl bg-zinc-950 border border-amber-500/40 space-y-3 text-xs animate-in fade-in"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-300">
+                        {isIndividualChamp
+                          ? `Inscribir Nuevo Jugador en ${activeChamp.name}`
+                          : `Inscribir Nuevo Equipo en ${activeChamp.name}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowInlineAddTeam(false)}
+                        className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {inlineNewTeamPlayers.map((pVal, idx) => (
-                    <div key={idx}>
-                      <label className="block text-zinc-400 font-semibold mb-1">
-                        Nombre Jugador {idx + 1} *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={pVal}
-                        onChange={(e) => {
-                          const next = [...inlineNewTeamPlayers];
-                          next[idx] = e.target.value;
-                          setInlineNewTeamPlayers(next);
-                        }}
-                        placeholder={`Nombre completo Jugador ${idx + 1}`}
-                        className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
-                      />
+                    {isIndividualChamp ? (
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <label className="block text-zinc-400 font-semibold mb-1">
+                            Nombre del Jugador *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={inlineNewTeamName}
+                            onChange={(e) => setInlineNewTeamName(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer shrink-0"
+                        >
+                          Guardar Jugador
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-zinc-400 font-semibold mb-1">
+                            Nombre del Equipo *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={inlineNewTeamName}
+                            onChange={(e) => setInlineNewTeamName(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {inlineNewTeamPlayers.map((pVal, idx) => (
+                            <div key={idx}>
+                              <label className="block text-zinc-400 font-semibold mb-1">
+                                Nombre Jugador {idx + 1} *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={pVal}
+                                onChange={(e) => {
+                                  const next = [...inlineNewTeamPlayers];
+                                  next[idx] = e.target.value;
+                                  setInlineNewTeamPlayers(next);
+                                }}
+                                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100"
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setInlineNewTeamPlayers((prev) => [...prev, ''])}
+                            className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            + Agregar otro jugador a este equipo
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer"
+                          >
+                            Guardar Equipo
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </form>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(activeChamp.teamDetails ||
+                    activeChamp.teams.map((tName, i) => ({
+                      id: `fallback-${i}`,
+                      name: tName,
+                      players: [],
+                      paidEntry: true,
+                    }))
+                  ).map((team, idx) => (
+                    <div
+                      key={team.id || idx}
+                      className="p-3 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-extrabold text-zinc-100 truncate">
+                          {idx + 1}. {team.name}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                            team.paidEntry !== false
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          {team.paidEntry !== false ? 'Inscrito' : 'Pendiente Pago'}
+                        </span>
+                      </div>
+                      {!isIndividualChamp && team.players && team.players.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {team.players.map((p, pIdx) => (
+                            <span
+                              key={pIdx}
+                              className="text-[11px] px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+                            >
+                              👤 {p}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setInlineNewTeamPlayers((prev) => [...prev, ''])}
-                    className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
-                  >
-                    + Agregar otro jugador a este equipo
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs cursor-pointer"
-                  >
-                    Guardar Equipo
-                  </button>
-                </div>
-              </form>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {(activeChamp.teamDetails ||
-                activeChamp.teams.map((tName, i) => ({
-                  id: `fallback-${i}`,
-                  name: tName,
-                  players: [],
-                  paidEntry: true,
-                }))
-              ).map((team, idx) => (
-                <div
-                  key={team.id || idx}
-                  className="p-3 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 space-y-1.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-extrabold text-zinc-100 truncate">
-                      {idx + 1}. {team.name}
-                    </span>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                        team.paidEntry !== false
-                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                      }`}
-                    >
-                      {team.paidEntry !== false ? 'Inscrito' : 'Pendiente Pago'}
-                    </span>
-                  </div>
-                  {team.players && team.players.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      {team.players.map((p, pIdx) => (
-                        <span
-                          key={pIdx}
-                          className="text-[11px] px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
-                        >
-                          👤 {p}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* RIGHT COLUMN: TOURNAMENT BRACKET (LLAVES) & PLAY-BY-PLAY LOG */}
@@ -2354,7 +2445,13 @@ export const ChampionshipsView: React.FC = () => {
 
                 <div>
                   <label className="block font-bold text-zinc-300 mb-1">
-                    Inscripción por Equipo ($ COP)
+                    {newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1
+                      ? 'Inscripción por Jugador ($ COP)'
+                      : newTeamFormat === 'PAREJAS'
+                      ? 'Inscripción por Pareja ($ COP)'
+                      : newTeamFormat === 'TRIOS'
+                      ? 'Inscripción por Trío ($ COP)'
+                      : 'Inscripción por Equipo ($ COP)'}
                   </label>
                   <input
                     type="text"
@@ -2385,132 +2482,223 @@ export const ChampionshipsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Step 4: Detailed Team & Individual Players Registration */}
-              <div className="space-y-3 pt-2 border-t border-zinc-800">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-extrabold text-zinc-100">
-                      5. Registro Detallado de Equipos y Nombres de Jugadores ({draftTeams.length} equipos)
-                    </h4>
-                    <p className="text-[11px] text-zinc-400">
-                      Escribe el nombre de cada equipo y el nombre de cada jugador que lo integra
-                    </p>
-                  </div>
+              {/* Step 4: Detailed Team or Individual Players Registration */}
+              {(() => {
+                const isIndividualMode =
+                  newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1;
+                const unitSingular = isIndividualMode
+                  ? 'Jugador'
+                  : newTeamFormat === 'PAREJAS'
+                  ? 'Pareja'
+                  : newTeamFormat === 'TRIOS'
+                  ? 'Trío'
+                  : 'Equipo';
+                const unitPlural = isIndividualMode
+                  ? 'Jugadores'
+                  : newTeamFormat === 'PAREJAS'
+                  ? 'Parejas'
+                  : newTeamFormat === 'TRIOS'
+                  ? 'Tríos'
+                  : 'Equipos';
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleShuffleDraftTeams}
-                      className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                      title="Sortear orden de llaves al azar"
-                    >
-                      <Shuffle className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Sortear Llaves</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleAddDraftTeam}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Agregar Equipo</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
-                  {draftTeams.map((team, tIdx) => (
-                    <div
-                      key={team.id}
-                      className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
-                          Equipo #{tIdx + 1}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleDraftTeamPaid(team.id)}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border ${
-                              team.paidEntry
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
-                                : 'bg-zinc-900 text-zinc-400 border-zinc-700'
-                            }`}
-                          >
-                            {team.paidEntry ? '✓ Inscripción Pagada' : 'Pago Pendiente'}
-                          </button>
-                          {draftTeams.length > 2 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveDraftTeam(team.id)}
-                              className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 cursor-pointer"
-                              title="Quitar equipo"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
+                return (
+                  <div className="space-y-3 pt-2 border-t border-zinc-800">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
-                          Nombre del Equipo #{tIdx + 1}
-                        </label>
-                        <input
-                          type="text"
-                          value={team.name}
-                          onChange={(e) => handleUpdateDraftTeamName(team.id, e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
-                        />
+                        <h4 className="text-xs sm:text-sm font-extrabold text-zinc-100">
+                          {isIndividualMode
+                            ? `5. Lista de Jugadores Inscritos (${draftTeams.length} jugadores)`
+                            : `5. Registro de ${unitPlural} y Nombres de Jugadores (${draftTeams.length} ${unitPlural.toLowerCase()})`}
+                        </h4>
+                        <p className="text-[11px] text-zinc-400">
+                          {isIndividualMode
+                            ? 'Escribe únicamente el nombre de cada jugador que participará en el campeonato individual'
+                            : `Escribe el nombre de cada ${unitSingular.toLowerCase()} y el nombre de cada jugador que lo integra`}
+                        </p>
                       </div>
 
-                      {/* Individual Players inside this Team */}
-                      <div className="space-y-1.5 pt-1 border-t border-zinc-900">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-amber-400/90">
-                            Integrantes ({team.players.length}):
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleAddPlayerToDraftTeam(team.id)}
-                            className="text-[11px] text-emerald-400 hover:underline font-semibold cursor-pointer"
-                          >
-                            + Jugador
-                          </button>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleShuffleDraftTeams}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                          title="Sortear orden de llaves al azar"
+                        >
+                          <Shuffle className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Sortear Llaves</span>
+                        </button>
 
-                        {team.players.map((playerName, pIdx) => (
-                          <div key={pIdx} className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-mono font-bold text-zinc-400 w-6 shrink-0">
-                              #{pIdx + 1}
-                            </span>
-                            <input
-                              type="text"
-                              value={playerName}
-                              onChange={(e) =>
-                                handleUpdateDraftPlayerName(team.id, pIdx, e.target.value)
-                              }
-                              className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800/90 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
-                            />
-                            {team.players.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePlayerFromDraftTeam(team.id, pIdx)}
-                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
-                                title="Quitar jugador"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                        <button
+                          type="button"
+                          onClick={handleAddDraftTeam}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Agregar {unitSingular}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {isIndividualMode ? (
+                      /* INDIVIDUAL MODE: Clean list of single player inputs */
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto pr-1">
+                        {draftTeams.map((team, tIdx) => {
+                          const currentPlayerName = team.players[0] ?? team.name ?? '';
+                          return (
+                            <div
+                              key={team.id}
+                              className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
+                                  👤 Jugador #{tIdx + 1}
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleDraftTeamPaid(team.id)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border ${
+                                      team.paidEntry
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
+                                        : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                                    }`}
+                                  >
+                                    {team.paidEntry ? '✓ Inscripción Pagada' : 'Pago Pendiente'}
+                                  </button>
+                                  {draftTeams.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveDraftTeam(team.id)}
+                                      className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                      title="Quitar jugador"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                                  Nombre del Jugador #{tIdx + 1}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={currentPlayerName}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setDraftTeams((prev) =>
+                                      prev.map((t) =>
+                                        t.id === team.id
+                                          ? { ...t, name: val, players: [val] }
+                                          : t
+                                      )
+                                    );
+                                  }}
+                                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* TEAM / PAREJAS / TRIOS MODE: Group Name + Individual Players */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
+                        {draftTeams.map((team, tIdx) => (
+                          <div
+                            key={team.id}
+                            className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold text-[10px]">
+                                {unitSingular} #{tIdx + 1}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleDraftTeamPaid(team.id)}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border ${
+                                    team.paidEntry
+                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
+                                      : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                                  }`}
+                                >
+                                  {team.paidEntry ? '✓ Inscripción Pagada' : 'Pago Pendiente'}
+                                </button>
+                                {draftTeams.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveDraftTeam(team.id)}
+                                    className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                    title={`Quitar ${unitSingular.toLowerCase()}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                                Nombre de {unitSingular === 'Pareja' ? 'la Pareja' : `el ${unitSingular}`} #{tIdx + 1}
+                              </label>
+                              <input
+                                type="text"
+                                value={team.name}
+                                onChange={(e) => handleUpdateDraftTeamName(team.id, e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-bold focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+
+                            {/* Individual Players inside this Team */}
+                            <div className="space-y-1.5 pt-1 border-t border-zinc-900">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-amber-400/90">
+                                  Integrantes ({team.players.length}):
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddPlayerToDraftTeam(team.id)}
+                                  className="text-[11px] text-emerald-400 hover:underline font-semibold cursor-pointer"
+                                >
+                                  + Jugador
+                                </button>
+                              </div>
+
+                              {team.players.map((playerName, pIdx) => (
+                                <div key={pIdx} className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-mono font-bold text-zinc-400 w-6 shrink-0">
+                                    #{pIdx + 1}
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={playerName}
+                                    onChange={(e) =>
+                                      handleUpdateDraftPlayerName(team.id, pIdx, e.target.value)
+                                    }
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800/90 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
+                                  />
+                                  {team.players.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemovePlayerFromDraftTeam(team.id, pIdx)}
+                                      className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                      title="Quitar jugador"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
@@ -2525,7 +2713,13 @@ export const ChampionshipsView: React.FC = () => {
                 type="submit"
                 className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold cursor-pointer shadow-lg shadow-amber-500/20"
               >
-                Crear Campeonato con {draftTeams.length} Equipos
+                {newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1
+                  ? `Crear Campeonato con ${draftTeams.length} Jugadores`
+                  : newTeamFormat === 'PAREJAS'
+                  ? `Crear Campeonato con ${draftTeams.length} Parejas`
+                  : newTeamFormat === 'TRIOS'
+                  ? `Crear Campeonato con ${draftTeams.length} Tríos`
+                  : `Crear Campeonato con ${draftTeams.length} Equipos`}
               </button>
             </div>
           </form>
