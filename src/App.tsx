@@ -762,6 +762,30 @@ export default function App() {
     showToast(`Gasto registrado: ${newExp.description} (${formatCurrency(newExp.amount)})`);
   };
 
+  const handleAddIncome = (incomeData: {
+    amount: number;
+    category: string;
+    description: string;
+    paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA';
+    clientName?: string;
+    reference?: string;
+  }) => {
+    storageService.addTransaction({
+      type: 'INGRESO_VENTA',
+      category: incomeData.category,
+      amount: incomeData.amount,
+      costAmount: 0,
+      paymentMethod: incomeData.paymentMethod,
+      reference: incomeData.reference || `#ING-${Date.now().toString().slice(-4)}`,
+      description: incomeData.description,
+      registeredBy: activeUser.name,
+      location: incomeData.category,
+      clientName: incomeData.clientName,
+    });
+    setTransactions(storageService.getTransactions());
+    showToast(`Ingreso registrado: ${incomeData.description} (+${formatCurrency(incomeData.amount)})`);
+  };
+
   const handleDeleteExpense = (expenseId: string) => {
     storageService.deleteExpense(expenseId);
     setExpenses(storageService.getExpenses());
@@ -1124,6 +1148,7 @@ export default function App() {
             activeUser={activeUser}
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
+            onAddIncome={handleAddIncome}
           />
         )}
 

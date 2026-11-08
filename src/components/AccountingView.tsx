@@ -20,7 +20,10 @@ import {
   Percent,
   Layers,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trophy,
+  Award,
+  Users
 } from 'lucide-react';
 import { 
   AccountingTransaction, 
@@ -32,6 +35,12 @@ import {
   Category 
 } from '../types';
 import { formatCurrency, formatShortDate, formatCOPInput, parseCOPInput } from '../services/storage';
+import {
+  Championship,
+  DEFAULT_CHAMPIONSHIPS,
+  STORAGE_KEY_CHAMPIONSHIPS,
+  getFormatLabel,
+} from './ChampionshipsView';
 
 interface AccountingViewProps {
   transactions: AccountingTransaction[];
@@ -41,6 +50,14 @@ interface AccountingViewProps {
   activeUser: User;
   onAddExpense: (expense: Omit<BusinessExpense, 'id' | 'timestamp'>) => void;
   onDeleteExpense: (expenseId: string) => void;
+  onAddIncome?: (income: {
+    amount: number;
+    category: string;
+    description: string;
+    paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA';
+    clientName?: string;
+    reference?: string;
+  }) => void;
 }
 
 export const AccountingView: React.FC<AccountingViewProps> = ({
@@ -51,9 +68,47 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
   activeUser,
   onAddExpense,
   onDeleteExpense,
+  onAddIncome,
 }) => {
   // Navigation tabs within Accounting
-  const [activeSubTab, setActiveSubTab] = useState<'MARGINS' | 'EXPENSES' | 'TRANSACTIONS'>('MARGINS');
+  const [activeSubTab, setActiveSubTab] = useState<'MARGINS' | 'EXPENSES' | 'TRANSACTIONS' | 'CHAMPIONSHIPS'>('MARGINS');
+
+  // Championships History loaded from storage
+  const [savedChampionships, setSavedChampionships] = useState<Championship[]>(() => {
+    const raw = localStorage.getItem(STORAGE_KEY_CHAMPIONSHIPS);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // fallback
+      }
+    }
+    return DEFAULT_CHAMPIONSHIPS;
+  });
+
+  useEffect(() => {
+    const raw = localStorage.getItem(STORAGE_KEY_CHAMPIONSHIPS);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSavedChampionships(parsed);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [activeSubTab]);
+
+  // New Income Modal & Form State
+  const [newIncomeModalOpen, setNewIncomeModalOpen] = useState(false);
+  const [incomeAmount, setIncomeAmount] = useState<number>(0);
+  const [incomeCategory, setIncomeCategory] = useState<string>('Inscripciones / Ganancia Campeonato');
+  const [incomeDescription, setIncomeDescription] = useState('');
+  const [incomeClient, setIncomeClient] = useState('');
+  const [incomePaymentMethod, setIncomePaymentMethod] = useState<PaymentMethod>('EFECTIVO');
+  const [incomeRef, setIncomeRef] = useState('');
 
   // Search & Filters for Margins
   const [marginSearch, setMarginSearch] = useState('');
@@ -221,6 +276,26 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
     setFormInvoiceRef('');
   };
 
+  const handleCreateIncome = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (incomeAmount <= 0 || !incomeDescription.trim() || !onAddIncome) return;
+
+    onAddIncome({
+      amount: incomeAmount,
+      category: incomeCategory,
+      description: incomeDescription.trim(),
+      paymentMethod: incomePaymentMethod,
+      clientName: incomeClient.trim() || undefined,
+      reference: incomeRef.trim() || undefined,
+    });
+
+    setNewIncomeModalOpen(false);
+    setIncomeAmount(0);
+    setIncomeDescription('');
+    setIncomeClient('');
+    setIncomeRef('');
+  };
+
   const categories = [
     'all',
     'Whisky',
@@ -246,7 +321,7 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
           </p>
         </div>
 
-        {/* Navigation Tabs between Margins, Expenses, and Transactions */}
+        {/* Navigation Tabs between Margins, Expenses, Transactions & Championships */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs overflow-x-auto max-w-full">
             <button
@@ -277,19 +352,36 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Libro de Ventas
+              Libro de Ventas & Ingresos
+            </button>
+            <button
+              onClick={() => setActiveSubTab('CHAMPIONSHIPS')}
+              className={`px-3 sm:px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                activeSubTab === 'CHAMPIONSHIPS'
+                  ? 'bg-amber-500 text-zinc-950 shadow-sm font-bold'
+                  : 'text-amber-300 hover:text-amber-200'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Historial de Campeonatos ({savedChampionships.length})</span>
             </button>
           </div>
 
-          {activeSubTab === 'EXPENSES' && (
-            <button
-              onClick={() => setNewExpenseModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md shadow-amber-500/10 cursor-pointer w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Registrar Gasto</span>
-            </button>
-          )}
+          <button
+            onClick={() => setNewIncomeModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold transition-all shadow-md shadow-emerald-500/15 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Registrar Ingreso</span>
+          </button>
+
+          <button
+            onClick={() => setNewExpenseModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Registrar Gasto</span>
+          </button>
         </div>
       </div>
 
@@ -849,6 +941,330 @@ export const AccountingView: React.FC<AccountingViewProps> = ({
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* VIEW 4: HISTORIAL DETALLADO Y GANANCIAS DE CAMPEONATOS */}
+      {activeSubTab === 'CHAMPIONSHIPS' && (
+        <div className="space-y-4">
+          {(() => {
+            const summary = savedChampionships.reduce(
+              (acc, c) => {
+                const count = c.teamDetails?.length || c.teams.length || 0;
+                const gross = count * (c.entryFee || 0);
+                const prize = c.prizePool || 0;
+                const net = gross - prize;
+                return {
+                  totalGross: acc.totalGross + gross,
+                  totalPrizes: acc.totalPrizes + prize,
+                  totalNetProfit: acc.totalNetProfit + net,
+                };
+              },
+              { totalGross: 0, totalPrizes: 0, totalNetProfit: 0 }
+            );
+
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800">
+                    <span className="text-xs text-zinc-400 font-medium block">
+                      Total Valor Jugado / Recaudado (100%):
+                    </span>
+                    <span className="text-xl font-extrabold font-mono text-zinc-100 mt-1 block">
+                      {formatCurrency(summary.totalGross)}
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
+                      Suma total de inscripciones de todos los participantes
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800">
+                    <span className="text-xs text-zinc-400 font-medium block">
+                      Total Sacado en Premios:
+                    </span>
+                    <span className="text-xl font-extrabold font-mono text-amber-400 mt-1 block">
+                      -{formatCurrency(summary.totalPrizes)}
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
+                      Premios destinados a los campeones
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/15 via-zinc-900 to-zinc-950 border border-emerald-500/35">
+                    <span className="text-xs text-emerald-300 font-bold block">
+                      Tu Ganancia Neta en Campeonatos:
+                    </span>
+                    <span className="text-2xl font-extrabold font-mono text-emerald-400 mt-1 block">
+                      +{formatCurrency(summary.totalNetProfit)}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">
+                      Utilidad libre que le queda al negocio
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-xl">
+                  <div className="p-4 bg-zinc-950/80 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-amber-400" />
+                        <span>Historial de Campeonatos: Participantes, Ganadores, Premios y Tu Ganancia</span>
+                      </h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Desglose confidencial de quiénes jugaron, qué modalidad jugaron, quién ganó, valor total recaudado, premio y ganancia neta.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-950 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-400 font-bold">
+                        <tr>
+                          <th className="py-3 px-4">Campeonato & Qué Jugaron</th>
+                          <th className="py-3 px-3">Personas / Equipos que Jugaron</th>
+                          <th className="py-3 px-3">Quién Ganó</th>
+                          <th className="py-3 px-3 text-right">Valor Jugado (100%)</th>
+                          <th className="py-3 px-3 text-right">Premio</th>
+                          <th className="py-3 px-4 text-right text-emerald-400">Tu Ganancia Neta</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/70">
+                        {savedChampionships.map((c) => {
+                          const roster = c.teamDetails || [];
+                          const count = roster.length || c.teams.length;
+                          const gross = count * (c.entryFee || 0);
+                          const prize = c.prizePool || 0;
+                          const net = gross - prize;
+                          const modeText =
+                            c.mode === 'TEJO_BALAZOS'
+                              ? 'Tejo A Balazos'
+                              : c.mode === 'TEJO_PUNTOS'
+                              ? 'Tejo por Puntos'
+                              : 'Bolirana / Rana';
+                          const allParticipants =
+                            roster.length > 0
+                              ? roster.map((td) =>
+                                  td.players &&
+                                  td.players.length > 0 &&
+                                  td.players.join(', ') !== td.name
+                                    ? `${td.name} (${td.players.join(', ')})`
+                                    : td.name
+                                )
+                              : c.teams;
+
+                          return (
+                            <tr key={c.id} className="hover:bg-zinc-850/40">
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="font-bold text-zinc-100">{c.name}</div>
+                                <div className="text-[11px] text-amber-400 font-semibold mt-0.5">
+                                  {modeText} · {getFormatLabel(c.teamFormat || 'PAREJAS', c.playersPerTeam)}
+                                </div>
+                                <div className="text-[10px] text-zinc-500 mt-0.5">
+                                  Meta: {c.targetScore}{' '}
+                                  {c.mode === 'TEJO_BALAZOS' ? 'balazos' : 'ptos'} · {c.createdAt}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-3 align-top max-w-md">
+                                <div className="text-[11px] font-bold text-zinc-300 mb-1">
+                                  {count} inscritos ({formatCurrency(c.entryFee)} c/u):
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {allParticipants.map((p, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 rounded-md bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-300"
+                                    >
+                                      👤 {p}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-3 align-top">
+                                {c.champion ? (
+                                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-extrabold text-[11px] inline-flex items-center gap-1">
+                                    🏆 {c.champion}
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                                    En Juego
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3.5 px-3 align-top text-right font-mono font-bold text-zinc-100">
+                                {formatCurrency(gross)}
+                              </td>
+                              <td className="py-3.5 px-3 align-top text-right font-mono font-bold text-amber-400">
+                                -{formatCurrency(prize)}
+                              </td>
+                              <td
+                                className={`py-3.5 px-4 align-top text-right font-mono font-extrabold text-sm ${
+                                  net >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                }`}
+                              >
+                                {net >= 0 ? '+' : ''}
+                                {formatCurrency(net)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* MODAL: REGISTRAR INGRESO AL NEGOCIO */}
+      {newIncomeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4">
+          <form
+            onSubmit={handleCreateIncome}
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[92dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">Registrar Ingreso al Negocio</h3>
+                <p className="text-xs text-zinc-400">
+                  Registra ingresos por campeonatos, alquiler de canchas, reservas o ventas adicionales.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewIncomeModalOpen(false)}
+                className="text-zinc-500 hover:text-zinc-300 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="col-span-2">
+                <label className="block font-semibold text-zinc-300 mb-1">
+                  Monto del Ingreso ($ COP):
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={formatCOPInput(incomeAmount)}
+                  onChange={(e) => setIncomeAmount(parseCOPInput(e.target.value))}
+                  placeholder="Ej. $ 150.000"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-emerald-500/40 text-emerald-400 font-bold font-mono text-base focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-zinc-300 mb-1">
+                  Categoría del Ingreso:
+                </label>
+                <select
+                  value={incomeCategory}
+                  onChange={(e) => setIncomeCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="Inscripciones / Ganancia Campeonato">
+                    Inscripciones / Ganancia de Campeonato
+                  </option>
+                  <option value="Alquiler Canchas Tejo & Bolirana">
+                    Alquiler Canchas de Tejo & Bolirana
+                  </option>
+                  <option value="Eventos & Reservas VIP">Eventos & Reservas VIP</option>
+                  <option value="Venta Directa / Otros Ingresos">
+                    Venta Directa / Otros Ingresos
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-zinc-300 mb-1">
+                  Medio de Pago Recibido:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIncomePaymentMethod('EFECTIVO')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      incomePaymentMethod === 'EFECTIVO'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold'
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    Efectivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIncomePaymentMethod('TRANSFERENCIA')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      incomePaymentMethod === 'TRANSFERENCIA'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold'
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    Transferencia
+                  </button>
+                </div>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block font-semibold text-zinc-300 mb-1">
+                  Descripción / Concepto del Ingreso:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={incomeDescription}
+                  onChange={(e) => setIncomeDescription(e.target.value)}
+                  placeholder="Ej. Ganancia neta Torneo Relámpago de Tejo A Balazos (8 jugadores)"
+                  className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-zinc-300 mb-1">
+                  Cliente / Torneo (Opcional):
+                </label>
+                <input
+                  type="text"
+                  value={incomeClient}
+                  onChange={(e) => setIncomeClient(e.target.value)}
+                  placeholder="Ej. Torneo Viernes / Mesa 4"
+                  className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-zinc-300 mb-1">
+                  N° Referencia / Recibo (Opcional):
+                </label>
+                <input
+                  type="text"
+                  value={incomeRef}
+                  onChange={(e) => setIncomeRef(e.target.value)}
+                  placeholder="Ej. #TOR-01"
+                  className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-3 border-t border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setNewIncomeModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+              >
+                Guardar Ingreso
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

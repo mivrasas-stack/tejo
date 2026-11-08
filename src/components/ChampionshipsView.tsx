@@ -76,7 +76,7 @@ export interface Championship {
   createdAt: string;
 }
 
-const STORAGE_KEY_CHAMPIONSHIPS = 'aura_pos_championships_v2';
+export const STORAGE_KEY_CHAMPIONSHIPS = 'aura_pos_championships_v2';
 
 export function getFormatLabel(format: TeamFormatType, count?: number): string {
   switch (format) {
@@ -237,7 +237,7 @@ function buildInitialMatches(teamNames: string[]): ChampionshipMatch[] {
   return matches;
 }
 
-const DEFAULT_CHAMPIONSHIPS: Championship[] = [
+export const DEFAULT_CHAMPIONSHIPS: Championship[] = [
   {
     id: 'champ-tejo-puntos',
     name: 'Gran Torneo Nocturno de Tejo AURA',
@@ -589,6 +589,7 @@ export const ChampionshipsView: React.FC = () => {
 
   const [selectedMatchId, setSelectedMatchId] = useState<string>('');
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Active Shooter / Player selector per side in the live scoreboard
@@ -616,6 +617,7 @@ export const ChampionshipsView: React.FC = () => {
   const [draftTeams, setDraftTeams] = useState<ChampionshipTeam[]>(() =>
     createEmptyTeamDrafts(4, 2)
   );
+  const [draftTeamsCountInput, setDraftTeamsCountInput] = useState<string>('4');
 
   // Clean any stale default 'Jugador X' or 'Equipo X' strings if preserved by HMR
   useEffect(() => {
@@ -726,20 +728,51 @@ export const ChampionshipsView: React.FC = () => {
   };
 
   const handleAddDraftTeam = () => {
-    setDraftTeams((prev) => [
-      ...prev,
-      {
-        id: `draft-team-${Date.now()}-${prev.length + 1}`,
-        name: '',
-        players: Array.from({ length: newPlayersPerTeam }, () => ''),
-        paidEntry: true,
-      },
-    ]);
+    setDraftTeams((prev) => {
+      const next = [
+        ...prev,
+        {
+          id: `draft-team-${Date.now()}-${prev.length + 1}`,
+          name: '',
+          players: Array.from({ length: newPlayersPerTeam }, () => ''),
+          paidEntry: true,
+        },
+      ];
+      setDraftTeamsCountInput(String(next.length));
+      return next;
+    });
   };
 
   const handleRemoveDraftTeam = (teamId: string) => {
     if (draftTeams.length <= 2) return;
-    setDraftTeams((prev) => prev.filter((t) => t.id !== teamId));
+    setDraftTeams((prev) => {
+      const next = prev.filter((t) => t.id !== teamId);
+      setDraftTeamsCountInput(String(next.length));
+      return next;
+    });
+  };
+
+  const handleSetDraftTeamsTotalCount = (rawCount: string) => {
+    const digits = rawCount.replace(/\D/g, '');
+    setDraftTeamsCountInput(digits);
+    if (!digits) return;
+    const targetTeams = Math.max(2, Math.min(64, parseInt(digits, 10) || 2));
+    setDraftTeams((prev) => {
+      const copy = [...prev];
+      if (copy.length < targetTeams) {
+        while (copy.length < targetTeams) {
+          copy.push({
+            id: `draft-team-${Date.now()}-${copy.length + 1}`,
+            name: '',
+            players: Array.from({ length: newPlayersPerTeam }, () => ''),
+            paidEntry: true,
+          });
+        }
+      } else if (copy.length > targetTeams) {
+        copy.length = targetTeams;
+      }
+      return copy;
+    });
   };
 
   const handleUpdateDraftTeamName = (teamId: string, newName: string) => {
@@ -1301,6 +1334,19 @@ export const ChampionshipsView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
+              onClick={() => setShowHistoryModal((prev) => !prev)}
+              className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                showHistoryModal
+                  ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                  : 'bg-zinc-900 hover:bg-zinc-800 border-emerald-500/40 text-emerald-300'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>{showHistoryModal ? 'Ocultar Historial & Ganancias' : 'Historial & Ganancias (Privado)'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowRulesModal((prev) => !prev)}
               className="px-3.5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
             >
@@ -1366,6 +1412,165 @@ export const ChampionshipsView: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* PRIVATE CHAMPIONSHIPS HISTORY & FINANCIAL PROFIT PANEL */}
+      {showHistoryModal && (
+        <div className="rounded-3xl bg-zinc-900/95 border border-emerald-500/40 p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in duration-150">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+            <div>
+              <h3 className="text-sm sm:text-base font-extrabold text-zinc-100 flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-400" />
+                <span>🔒 Historial Privado de Campeonatos, Participantes y Ganancias del Negocio</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Información exclusiva para administración: personas que jugaron, modalidad, ganador, recaudo 100%, premio entregado y tu ganancia neta.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-xl bg-zinc-800 cursor-pointer font-bold"
+            >
+              Cerrar Historial
+            </button>
+          </div>
+
+          {(() => {
+            const summary = championships.reduce(
+              (acc, c) => {
+                const count = c.teamDetails?.length || c.teams.length || 0;
+                const gross = count * (c.entryFee || 0);
+                const prize = c.prizePool || 0;
+                const net = gross - prize;
+                return {
+                  totalGross: acc.totalGross + gross,
+                  totalPrizes: acc.totalPrizes + prize,
+                  totalNetProfit: acc.totalNetProfit + net,
+                };
+              },
+              { totalGross: 0, totalPrizes: 0, totalNetProfit: 0 }
+            );
+
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800">
+                    <span className="text-[11px] text-zinc-400 block">
+                      Total Jugado / Recaudado (100%):
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-zinc-100">
+                      {formatCurrency(summary.totalGross)}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800">
+                    <span className="text-[11px] text-zinc-400 block">
+                      Total Sacado en Premios:
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-amber-400">
+                      -{formatCurrency(summary.totalPrizes)}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/35">
+                    <span className="text-[11px] text-emerald-300 font-bold block">
+                      Tu Ganancia Neta Total (Casa):
+                    </span>
+                    <span className="text-xl font-extrabold font-mono text-emerald-400">
+                      +{formatCurrency(summary.totalNetProfit)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-950">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-900 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-400 font-bold">
+                      <tr>
+                        <th className="py-3 px-3">Torneo & Qué Jugaron</th>
+                        <th className="py-3 px-3">Personas / Equipos que Jugaron</th>
+                        <th className="py-3 px-3">Quién Ganó</th>
+                        <th className="py-3 px-3 text-right">Valor Jugado (100%)</th>
+                        <th className="py-3 px-3 text-right">Premio</th>
+                        <th className="py-3 px-3 text-right text-emerald-400">Tu Ganancia Neta</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/70">
+                      {championships.map((c) => {
+                        const modeInfo = getModeBadge(c.mode);
+                        const roster = c.teamDetails || [];
+                        const count = roster.length || c.teams.length;
+                        const gross = count * (c.entryFee || 0);
+                        const prize = c.prizePool || 0;
+                        const net = gross - prize;
+                        const allPlayersList =
+                          roster.length > 0
+                            ? roster.map((td) =>
+                                td.players && td.players.length > 0 && td.players.join(', ') !== td.name
+                                  ? `${td.name} (${td.players.join(', ')})`
+                                  : td.name
+                              )
+                            : c.teams;
+
+                        return (
+                          <tr key={c.id} className="hover:bg-zinc-900/50">
+                            <td className="py-3 px-3 align-top">
+                              <div className="font-bold text-zinc-100">{c.name}</div>
+                              <div className="text-[10px] text-amber-400 font-semibold mt-0.5">
+                                {modeInfo.label} · {getFormatLabel(c.teamFormat || 'PAREJAS', c.playersPerTeam)}
+                              </div>
+                              <div className="text-[10px] text-zinc-500">
+                                Meta: {c.targetScore} {modeInfo.unit} · {c.createdAt}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 align-top max-w-xs">
+                              <div className="text-[11px] font-bold text-zinc-300 mb-1">
+                                {count} inscritos ({formatCurrency(c.entryFee)} c/u):
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {allPlayersList.map((p, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300"
+                                  >
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 align-top">
+                              {c.champion ? (
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-extrabold text-[11px] inline-flex items-center gap-1">
+                                  🏆 {c.champion}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                                  En Curso
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 align-top text-right font-mono font-bold text-zinc-100">
+                              {formatCurrency(gross)}
+                            </td>
+                            <td className="py-3 px-3 align-top text-right font-mono font-bold text-amber-400">
+                              -{formatCurrency(prize)}
+                            </td>
+                            <td
+                              className={`py-3 px-3 align-top text-right font-mono font-extrabold text-sm ${
+                                net >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                              }`}
+                            >
+                              {net >= 0 ? '+' : ''}
+                              {formatCurrency(net)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* COLLAPSIBLE OFFICIAL RULES & SCORING REFERENCE */}
       {showRulesModal && (
@@ -2414,73 +2619,207 @@ export const ChampionshipsView: React.FC = () => {
                 )}
               </div>
 
-              {/* Step 3: Target Score, Entry Fee & Prize Pool */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-bold text-amber-400 mb-1">
-                    4. Meta para Ganar ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={newChampTargetInput}
-                    onChange={(e) =>
-                      setNewChampTargetInput(e.target.value.replace(/\D/g, ''))
-                    }
-                    onBlur={() => {
-                      if (!newChampTargetInput.trim()) {
-                        setNewChampTargetInput(
-                          newChampMode === 'TEJO_BALAZOS'
-                            ? '5'
-                            : newChampMode === 'BOLIRANA'
-                            ? '3000'
-                            : '27'
-                        );
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400"
-                  />
-                </div>
+              {/* Step 3: Target Score, Total Participants, Entry Fee, Prize Pool & Live Profit Summary */}
+              {(() => {
+                const isInd = newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1;
+                const unitLabelPlural = isInd
+                  ? 'Jugadores'
+                  : newTeamFormat === 'PAREJAS'
+                  ? 'Parejas'
+                  : newTeamFormat === 'TRIOS'
+                  ? 'Tríos'
+                  : 'Equipos';
+                const unitLabelSingular = isInd
+                  ? 'Jugador'
+                  : newTeamFormat === 'PAREJAS'
+                  ? 'Pareja'
+                  : newTeamFormat === 'TRIOS'
+                  ? 'Trío'
+                  : 'Equipo';
 
-                <div>
-                  <label className="block font-bold text-zinc-300 mb-1">
-                    {newTeamFormat === 'INDIVIDUAL' || newPlayersPerTeam === 1
-                      ? 'Inscripción por Jugador ($ COP)'
-                      : newTeamFormat === 'PAREJAS'
-                      ? 'Inscripción por Pareja ($ COP)'
-                      : newTeamFormat === 'TRIOS'
-                      ? 'Inscripción por Trío ($ COP)'
-                      : 'Inscripción por Equipo ($ COP)'}
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={newChampEntryFeeInput}
-                    onChange={(e) =>
-                      setNewChampEntryFeeInput(formatCopCurrencyInput(e.target.value))
-                    }
-                    placeholder="$ 0"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 font-mono font-bold focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+                const entryFeeNum = parseCopCurrencyInput(newChampEntryFeeInput);
+                const prizePoolNum = parseCopCurrencyInput(newChampPrizePoolInput);
+                const participantsCount = draftTeams.length;
+                const totalGrossPool = participantsCount * entryFeeNum;
+                const netHouseProfit = totalGrossPool - prizePoolNum;
+                const houseMarginPct =
+                  totalGrossPool > 0
+                    ? Math.round((netHouseProfit / totalGrossPool) * 100)
+                    : 0;
+                const prizePct =
+                  totalGrossPool > 0
+                    ? Math.round((prizePoolNum / totalGrossPool) * 100)
+                    : 0;
 
-                <div>
-                  <label className="block font-bold text-zinc-300 mb-1">
-                    Premio al Campeón ($ COP)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={newChampPrizePoolInput}
-                    onChange={(e) =>
-                      setNewChampPrizePoolInput(formatCopCurrencyInput(e.target.value))
-                    }
-                    placeholder="$ 0"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block font-bold text-amber-400 mb-1">
+                          4. Meta para Ganar ({newChampMode === 'TEJO_BALAZOS' ? 'Balazos' : 'Puntos'}) *
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          required
+                          value={newChampTargetInput}
+                          onChange={(e) =>
+                            setNewChampTargetInput(e.target.value.replace(/\D/g, ''))
+                          }
+                          onBlur={() => {
+                            if (!newChampTargetInput.trim()) {
+                              setNewChampTargetInput(
+                                newChampMode === 'TEJO_BALAZOS'
+                                  ? '5'
+                                  : newChampMode === 'BOLIRANA'
+                                  ? '3000'
+                                  : '27'
+                              );
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-amber-300 mb-1">
+                          Cantidad de {unitLabelPlural} *
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSetDraftTeamsTotalCount(
+                                String(Math.max(2, draftTeams.length - 1))
+                              )
+                            }
+                            className="w-9 h-9 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold cursor-pointer shrink-0"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={draftTeamsCountInput}
+                            onChange={(e) => handleSetDraftTeamsTotalCount(e.target.value)}
+                            onBlur={() => {
+                              if (!draftTeamsCountInput.trim()) {
+                                setDraftTeamsCountInput(String(draftTeams.length));
+                              }
+                            }}
+                            className="w-full px-2 py-2 rounded-xl bg-zinc-950 border border-amber-500/40 text-amber-300 font-mono font-bold text-center focus:outline-none focus:border-amber-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSetDraftTeamsTotalCount(
+                                String(Math.min(64, draftTeams.length + 1))
+                              )
+                            }
+                            className="w-9 h-9 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold cursor-pointer shrink-0"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-zinc-300 mb-1">
+                          Inscripción por {unitLabelSingular} ($ COP)
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={newChampEntryFeeInput}
+                          onChange={(e) =>
+                            setNewChampEntryFeeInput(formatCopCurrencyInput(e.target.value))
+                          }
+                          placeholder="$ 0"
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-zinc-300 mb-1">
+                          Premio al Campeón ($ COP)
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={newChampPrizePoolInput}
+                          onChange={(e) =>
+                            setNewChampPrizePoolInput(formatCopCurrencyInput(e.target.value))
+                          }
+                          placeholder="$ 0"
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* LIVE FINANCIAL & PROFIT BREAKDOWN FOR THE OWNER */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-zinc-950 to-zinc-950 border border-emerald-500/35 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                          🔒 Resumen Financiero del Torneo (Solo visible para ti al configurar y en Historial)
+                        </span>
+                        <span className="text-[11px] font-mono text-zinc-400">
+                          {participantsCount} {unitLabelPlural.toLowerCase()} ×{' '}
+                          {formatCurrency(entryFeeNum)}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800">
+                          <span className="text-[10px] text-zinc-400 block">
+                            Total Recaudado (100% Jugado):
+                          </span>
+                          <span className="text-base sm:text-lg font-extrabold font-mono text-zinc-100">
+                            {formatCurrency(totalGrossPool)}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 block">
+                            {participantsCount} {unitLabelPlural.toLowerCase()} inscritos
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800">
+                          <span className="text-[10px] text-zinc-400 block">
+                            (-) Premio al Campeón ({prizePct}%):
+                          </span>
+                          <span className="text-base sm:text-lg font-extrabold font-mono text-amber-400">
+                            -{formatCurrency(prizePoolNum)}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 block">
+                            Se entrega al ganador del torneo
+                          </span>
+                        </div>
+
+                        <div
+                          className={`p-3 rounded-xl border ${
+                            netHouseProfit >= 0
+                              ? 'bg-emerald-500/15 border-emerald-500/40'
+                              : 'bg-rose-500/15 border-rose-500/40'
+                          }`}
+                        >
+                          <span className="text-[10px] text-zinc-200 font-bold block">
+                            (=) Tu Ganancia Neta ({houseMarginPct}%):
+                          </span>
+                          <span
+                            className={`text-base sm:text-lg font-extrabold font-mono ${
+                              netHouseProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}
+                          >
+                            {netHouseProfit >= 0 ? '+' : ''}
+                            {formatCurrency(netHouseProfit)}
+                          </span>
+                          <span className="text-[10px] text-zinc-300 block">
+                            Lo que te queda libre de ganancia
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Step 4: Detailed Team or Individual Players Registration */}
               {(() => {
